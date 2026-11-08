@@ -1,0 +1,2935 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bitcoin Mining Lab — Orbital Signal & SHA-256×2 Engine</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+    :root {
+      --bg-void: #040307;
+      --bg-panel: rgba(11, 9, 16, 0.88);
+      --bg-panel-solid: #0a080f;
+      --bg-card: rgba(18, 14, 26, 0.78);
+      --border-dim: #231b30;
+      --border-mid: #38284d;
+      --border-bright: #ff4fa3;
+
+      /* Palette dual-theme: Signature Pink/Magenta (Default Exact Match) + Terminal Green/Amber */
+      --accent-main: #ff4fa3;
+      --accent-soft: #d96bff;
+      --accent-glow: rgba(255, 79, 163, 0.55);
+      --accent-dim: rgba(255, 79, 163, 0.14);
+      --green-main: #00ff88;
+      --amber-main: #ffb000;
+      --cyan-main: #7df9ff;
+
+      --text-bright: #f5effa;
+      --text-mid: #9d8fb3;
+      --text-dim: #594d6b;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    body[data-theme="matrix"] {
+      --border-dim: #182720;
+      --border-mid: #244234;
+      --border-bright: #00ff88;
+      --accent-main: #00ff88;
+      --accent-soft: #ffb000;
+      --accent-glow: rgba(0, 255, 136, 0.55);
+      --accent-dim: rgba(0, 255, 136, 0.14);
+      --text-mid: #84a094;
+      --text-dim: #465c52;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background-color: var(--bg-void);
+      color: var(--text-bright);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.35;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle CRT scanline overlay */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(rgba(16, 12, 22, 0) 50%, rgba(0, 0, 0, 0.24) 50%);
+      background-size: 100% 3px;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 1920px;
+      margin: 0 auto;
+      background: var(--bg-void);
+    }
+
+    /* ==========================================================================
+       1. PERMANENT EDUCATIONAL BANNER (MANDATORY)
+       ========================================================================== */
+    .edu-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 14px;
+      background: linear-gradient(90deg, #120817 0%, #241029 50%, #120817 100%);
+      border-bottom: 1px solid var(--border-mid);
+      color: var(--amber-main);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      z-index: 50;
+    }
+
+    .edu-banner-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .edu-badge {
+      background: var(--amber-main);
+      color: #050408;
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .edu-banner-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 9.5px;
+      color: var(--text-mid);
+    }
+
+    .theme-switch-btn {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
+      background: var(--bg-card);
+      color: var(--accent-main);
+      border: 1px solid var(--accent-main);
+      border-radius: 2px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+    }
+
+    /* ==========================================================================
+       2. TOP BAR (EXACT JEV TRADING DESK LAYOUT)
+       ========================================================================== */
+    .top-bar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      padding: 7px 14px;
+      background: #06050a;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .brand-logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, var(--accent-main), var(--accent-soft));
+      color: #050308;
+      font-weight: 800;
+      font-size: 13px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .brand-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--accent-main);
+      letter-spacing: 0.02em;
+      text-shadow: 0 0 14px rgba(255, 79, 163, 0.35);
+    }
+
+    .top-center {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .top-engine-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      color: var(--text-bright);
+    }
+
+    .top-engine-steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 8.5px;
+      letter-spacing: 0.14em;
+      color: var(--text-dim);
+    }
+
+    .top-engine-steps span.active {
+      color: var(--accent-main);
+      font-weight: 700;
+      text-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 14px;
+    }
+
+    .live-indicator {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--text-mid);
+      padding: 2px 7px;
+      border: 1px solid var(--border-mid);
+      border-radius: 2px;
+    }
+
+    .live-indicator[data-status="MINING"] {
+      color: var(--accent-main);
+      border-color: var(--accent-main);
+      background: var(--accent-dim);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .live-indicator[data-status="ECO"] {
+      color: var(--amber-main);
+      border-color: var(--amber-main);
+      background: rgba(255, 176, 0, 0.12);
+    }
+
+    .top-clock {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+
+    .top-date {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .top-time {
+      font-size: 9px;
+      color: var(--text-mid);
+    }
+
+    /* ==========================================================================
+       3. 6-AGENT PIPELINE RIBBON (01 WATCHER .. 06 HUMAN STYLE)
+       ========================================================================== */
+    .agent-ribbon {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      padding: 5px 10px;
+      background: #07050c;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .agent-card {
+      background: #0b0912;
+      border: 1px solid var(--border-dim);
+      padding: 5px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+    }
+
+    .agent-card.highlight {
+      border-bottom: 2px solid var(--accent-main);
+      background: linear-gradient(180deg, #0b0912 0%, rgba(255, 79, 163, 0.08) 100%);
+    }
+
+    .agent-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      color: var(--text-mid);
+    }
+
+    .agent-Top-Left {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .agent-num {
+      color: var(--text-dim);
+      font-size: 8.5px;
+    }
+
+    .agent-name {
+      color: var(--text-bright);
+      font-weight: 700;
+    }
+
+    .agent-badge {
+      font-size: 8px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 2px;
+      color: var(--text-mid);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .agent-badge.pink {
+      background: var(--accent-main);
+      color: #060409;
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .agent-badge.purple {
+      background: rgba(169, 92, 255, 0.25);
+      color: #d8a6ff;
+      border: 1px solid rgba(169, 92, 255, 0.5);
+    }
+
+    .agent-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .agent-spark {
+      width: 90px;
+      height: 18px;
+      display: block;
+    }
+
+    .agent-val {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-bright);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ==========================================================================
+       4. UPPER STAGE: FULL-BLEED 3D TORUS VORTEX + FLOATING LEFT/RIGHT PANELS
+       ========================================================================== */
+    .upper-stage {
+      position: relative;
+      height: 455px;
+      background: radial-gradient(ellipse at 50% 47%, rgba(160, 42, 140, 0.18) 0%, rgba(18, 9, 28, 0.6) 52%, #040307 85%);
+      border-bottom: 1px solid var(--border-dim);
+      overflow: hidden;
+    }
+
+    #vortexCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+
+    /* Floating Columns on Left and Right (Exact Reference Layout) */
+    .stage-col-left,
+    .stage-col-right {
+      position: absolute;
+      top: 8px;
+      bottom: 58px;
+      width: 215px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 5;
+      pointer-events: auto;
+    }
+
+    .stage-col-left { left: 8px; }
+    .stage-col-right { right: 8px; width: 220px; }
+
+    .hud-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      backdrop-filter: blur(5px);
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .hud-box-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--text-mid);
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 3px;
+    }
+
+    .hud-box-title .tag {
+      color: var(--accent-main);
+      font-size: 8.5px;
+    }
+
+    /* Left Box 1: OPERATOR RIG / MARKET TICKER STYLE */
+    .ctrl-btn-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+    }
+
+    .rig-btn {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 5px 6px;
+      border-radius: 2px;
+      border: 1px solid var(--border-mid);
+      background: #120d1a;
+      color: var(--text-bright);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.14s;
+    }
+
+    .rig-btn.start {
+      border-color: var(--green-main);
+      color: var(--green-main);
+      background: rgba(0, 255, 136, 0.1);
+    }
+
+    .rig-btn.start:not(:disabled):hover {
+      background: var(--green-main);
+      color: #050408;
+      box-shadow: 0 0 12px rgba(0, 255, 136, 0.5);
+    }
+
+    .rig-btn.stop {
+      border-color: var(--accent-main);
+      color: var(--accent-main);
+      background: var(--accent-dim);
+    }
+
+    .rig-btn.stop:not(:disabled):hover {
+      background: var(--accent-main);
+      color: #050408;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .rig-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .slider-mini {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .slider-mini-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text-mid);
+    }
+
+    .slider-mini-top b {
+      color: var(--accent-main);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: #221930;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 11px;
+      height: 11px;
+      background: var(--accent-main);
+      border: 1px solid #fff;
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    .eco-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3px 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-dim);
+      cursor: pointer;
+      font-size: 9px;
+    }
+
+    .eco-row[aria-pressed="true"] {
+      border-color: var(--amber-main);
+      color: var(--amber-main);
+      background: rgba(255, 176, 0, 0.12);
+    }
+
+    /* Ticker rows with mini sparklines (like BTC, ETH, SOL, HYPE on left) */
+    .ticker-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .ticker-row {
+      display: grid;
+      grid-template-columns: 38px 54px 1fr;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ticker-sym {
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .ticker-sub {
+      display: block;
+      font-size: 7.5px;
+      color: var(--accent-main);
+    }
+
+    .ticker-val {
+      text-align: right;
+      color: var(--text-bright);
+      font-weight: 600;
+    }
+
+    .ticker-spark {
+      width: 100%;
+      height: 14px;
+      display: block;
+    }
+
+    /* Left Box 2: NONCE DEPTH (Order Book V-Curve Style) */
+    #depthCanvas {
+      width: 100%;
+      height: 68px;
+      display: block;
+    }
+
+    .depth-footer {
+      text-align: center;
+      font-size: 8.5px;
+      color: var(--text-mid);
+      letter-spacing: 0.08em;
+    }
+
+    /* Left Box 3: LEADING ZERO VOLATILITY / BAR DISTRIBUTION */
+    .vol-big {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-bright);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #zeroBarsCanvas {
+      width: 100%;
+      height: 52px;
+      display: block;
+    }
+
+    /* Right Box 1: EVIDENCE MATRIX (8x8 Glowing Pink/Purple/White Grid) */
+    #evidenceMatrixCanvas {
+      width: 100%;
+      height: 118px;
+      display: block;
+    }
+
+    /* Right Box 2: HANDOFFS / WORKER THREAD BARS */
+    .handoff-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .handoff-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .handoff-lbl {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8px;
+      color: var(--text-mid);
+      text-transform: uppercase;
+    }
+
+    .handoff-track {
+      height: 4px;
+      background: #1b1426;
+      border-radius: 1px;
+      overflow: hidden;
+    }
+
+    .handoff-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-main), var(--accent-soft));
+      box-shadow: 0 0 6px var(--accent-glow);
+      transition: width 0.2s ease;
+    }
+
+    /* Right Box 3: DIFFICULTY / RISK GAUGE */
+    #riskGaugeCanvas {
+      width: 100%;
+      height: 76px;
+      display: block;
+    }
+
+    .gauge-sub-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      text-align: center;
+      font-size: 8.5px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 4px;
+    }
+
+    .gauge-sub-metrics span {
+      display: block;
+      color: var(--text-dim);
+      font-size: 7.5px;
+    }
+
+    .gauge-sub-metrics b {
+      color: var(--text-bright);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ==========================================================================
+       5. 5-METRIC RIBBON AT BOTTOM OF VORTEX STAGE
+       ========================================================================== */
+    .stage-bottom-ribbon {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 6px;
+      height: 46px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      z-index: 6;
+    }
+
+    .mid-metric-card {
+      background: rgba(11, 9, 16, 0.9);
+      border: 1px solid var(--border-dim);
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mid-metric-lbl {
+      font-size: 8px;
+      color: var(--text-mid);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .mid-metric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .mid-metric-val {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-bright);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mid-metric-val.pink {
+      color: var(--accent-main);
+    }
+
+    .mid-spark {
+      width: 78px;
+      height: 18px;
+      display: block;
+    }
+
+    /* ==========================================================================
+       6. LOWER SPLIT WORKSPACE: PYTHON CODE EDITOR + TABULAR LIVE LOG
+       ========================================================================== */
+    .lower-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 6px 8px;
+      background: #050409;
+      border-bottom: 1px solid var(--border-dim);
+      min-height: 235px;
+    }
+
+    .editor-pane,
+    .log-pane {
+      background: #08060e;
+      border: 1px solid var(--border-dim);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: #0d0a16;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 9.5px;
+    }
+
+    .pane-tabs {
+      display: flex;
+      gap: 12px;
+    }
+
+    .pane-tab {
+      color: var(--text-dim);
+      cursor: pointer;
+      padding-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .pane-tab.active {
+      color: var(--text-bright);
+      border-bottom: 2px solid var(--accent-main);
+    }
+
+    .pane-live-tag {
+      color: var(--accent-main);
+      font-weight: 800;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+    }
+
+    .code-body {
+      padding: 6px 0;
+      font-size: 10.5px;
+      line-height: 1.52;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .code-line {
+      display: flex;
+      padding: 0 10px;
+      gap: 12px;
+      border-left: 2px solid transparent;
+      white-space: pre;
+    }
+
+    .code-line.active {
+      background: linear-gradient(90deg, rgba(255, 79, 163, 0.22) 0%, rgba(255, 79, 163, 0.03) 90%);
+      border-left-color: var(--accent-main);
+    }
+
+    .ln {
+      color: var(--text-dim);
+      width: 20px;
+      text-align: right;
+      user-select: none;
+    }
+
+    .kw { color: var(--accent-main); font-weight: 600; }
+    .fn { color: #d8a6ff; }
+    .st { color: var(--amber-main); }
+    .cm { color: #63537a; }
+    .right-cm { margin-left: auto; color: #594a6e; font-size: 9.5px; }
+
+    /* Right Sub-Pane: Live Log Table (Exact Match to Reference) */
+    .log-filter-group {
+      display: flex;
+      gap: 8px;
+      font-size: 8.5px;
+      text-transform: uppercase;
+    }
+
+    .log-filter {
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 1px 4px;
+    }
+
+    .log-filter.active {
+      color: var(--accent-main);
+      border-bottom: 1px solid var(--accent-main);
+      font-weight: 700;
+    }
+
+    .terminal-log {
+      height: 195px;
+      overflow-y: auto;
+      padding: 5px 8px;
+      font-size: 10px;
+      line-height: 1.52;
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .terminal-log::-webkit-scrollbar { width: 5px; }
+    .terminal-log::-webkit-scrollbar-track { background: #08060e; }
+    .terminal-log::-webkit-scrollbar-thumb { background: var(--border-mid); }
+
+    .log-item {
+      display: grid;
+      grid-template-columns: 78px 66px 1fr 56px;
+      gap: 6px;
+      align-items: center;
+      padding: 1px 4px;
+      white-space: nowrap;
+      border-left: 2px solid transparent;
+    }
+
+    .log-item .c-ts { color: var(--text-dim); }
+    .log-item .c-role { color: var(--text-mid); font-weight: 600; }
+    .log-item .c-msg { color: var(--text-bright); overflow: hidden; text-overflow: ellipsis; }
+    .log-item .c-delta { text-align: right; color: var(--text-mid); font-weight: 700; }
+
+    .log-item .zero-hi {
+      background: var(--accent-main);
+      color: #050308;
+      font-weight: 800;
+      padding: 0 2px;
+      border-radius: 1px;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    .log-item.hit-row {
+      background: rgba(0, 255, 136, 0.14);
+      border-left-color: var(--green-main);
+    }
+
+    .log-item.hit-row .c-role,
+    .log-item.hit-row .c-delta {
+      color: var(--green-main);
+    }
+
+    /* ==========================================================================
+       7. BOTTOM 6-KPI TELEMETRY DECK + FOOTER
+       ========================================================================== */
+    .bottom-kpi-deck {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      padding: 4px 8px 6px;
+      background: #050409;
+    }
+
+    .kpi-tile {
+      background: #090710;
+      border: 1px solid var(--border-dim);
+      padding: 6px 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 74px;
+    }
+
+    .kpi-tile-lbl {
+      font-size: 8px;
+      color: var(--text-mid);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .kpi-tile-big {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--text-bright);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      margin: 2px 0;
+    }
+
+    .kpi-tile-big.pink {
+      color: var(--accent-main);
+      text-shadow: 0 0 12px rgba(255, 79, 163, 0.35);
+    }
+
+    .kpi-tile-spark {
+      width: 100%;
+      height: 20px;
+      display: block;
+    }
+
+    .thermal-squares {
+      display: flex;
+      gap: 3px;
+      margin-top: 4px;
+    }
+
+    .t-sq {
+      width: 8px;
+      height: 8px;
+      background: #1d1628;
+      border-radius: 1px;
+    }
+
+    .t-sq.on {
+      background: var(--accent-main);
+      box-shadow: 0 0 5px var(--accent-glow);
+    }
+
+    .t-sq.hot {
+      background: var(--amber-main);
+    }
+
+    .hud-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 14px;
+      background: #040307;
+      border-top: 1px solid var(--border-dim);
+      font-size: 8.5px;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ==========================================================================
+       RESPONSIVE BREAKPOINTS & REDUCED MOTION
+       ========================================================================== */
+    @media (max-width: 1180px) {
+      .agent-ribbon { grid-template-columns: repeat(3, 1fr); }
+      .bottom-kpi-deck { grid-template-columns: repeat(3, 1fr); }
+      .stage-col-left, .stage-col-right { width: 190px; }
+    }
+
+    @media (max-width: 860px) {
+      .upper-stage {
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        gap: 8px;
+      }
+      #vortexCanvas {
+        position: relative;
+        height: 300px;
+      }
+      .stage-col-left,
+      .stage-col-right,
+      .stage-bottom-ribbon {
+        position: relative;
+        top: auto;
+        bottom: auto;
+        left: auto;
+        right: auto;
+        width: 100%;
+        height: auto;
+      }
+      .stage-bottom-ribbon {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .lower-split {
+        grid-template-columns: 1fr;
+      }
+      .agent-ribbon,
+      .bottom-kpi-deck {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .top-bar {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        text-align: center;
+      }
+      .top-right { justify-content: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-theme="jev">
+
+  <div class="app-shell">
+
+    <!-- 1. MANDATORY PERMANENT EDUCATIONAL BANNER -->
+    <div class="edu-banner" role="region" aria-label="Banner Edukasi Permanen">
+      <div class="edu-banner-left">
+        <span class="edu-badge">SIMULASI LOKAL</span>
+        <span>EDUKASI · TANPA PAYOUT · tidak terhubung ke jaringan Bitcoin</span>
+      </div>
+      <div class="edu-banner-right">
+        <span>⚠ Peringatan: Hashing intensif CPU dapat memicu panas & kuras baterai di laptop/HP</span>
+        <button id="btnTheme" class="theme-switch-btn" type="button" title="Ganti warna JEV Pink / Matrix Green">PALETTE: PINK/PURPLE</button>
+      </div>
+    </div>
+
+    <!-- 2. TOP HEADER (EXACT JEV TRADING DESK LAYOUT) -->
+    <header class="top-bar">
+      <div class="brand-wrap">
+        <div class="brand-logo">#</div>
+        <div class="brand-name">BTC Mining Desk</div>
+      </div>
+
+      <div class="top-center">
+        <div class="top-engine-title">ORBITAL SHA-256×2 ENGINE</div>
+        <div class="top-engine-steps">
+          <span id="step0" class="active">OBSERVE</span>
+          <span>·</span>
+          <span id="step1">MUTATE</span>
+          <span>·</span>
+          <span id="step2">COMPRESS</span>
+          <span>·</span>
+          <span id="step3">VERIFY</span>
+        </div>
+      </div>
+
+      <div class="top-right">
+        <div id="statusBadge" class="live-indicator" data-status="IDLE">IDLE</div>
+        <div class="top-clock">
+          <div id="clockDate" class="top-date">08 NOV 2026</div>
+          <div id="clockTime" class="top-time">00:00:00</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 3. 6-STAGE AGENT PIPELINE RIBBON -->
+    <section class="agent-ribbon" aria-label="6-Stage SHA-256 Pipeline">
+      <div class="agent-card" id="agCard0">
+        <div class="agent-top">
+          <div class="agent-Top-Left"><span class="agent-num">01</span><span class="agent-name">HEADER</span></div>
+          <span class="agent-badge" id="agBadge0">READY</span>
+        </div>
+        <div class="agent-bottom">
+          <canvas class="agent-spark" id="agSpark0"></canvas>
+          <span class="agent-val" id="agVal0">80B</span>
+        </div>
+      </div>
+
+      <div class="agent-card" id="agCard1">
+        <div class="agent-top">
+          <div class="agent-Top-Left"><span class="agent-num">02</span><span class="agent-name">MUTATOR</span></div>
+          <span class="agent-badge" id="agBadge1">STANDBY</span>
+        </div>
+        <div class="agent-bottom">
+          <canvas class="agent-spark" id="agSpark1"></canvas>
+          <span class="agent-val" id="agVal1">0x00</span>
+        </div>
+      </div>
+
+      <div class="agent-card highlight" id="agCard2">
+        <div class="agent-top">
+          <div class="agent-Top-Left"><span class="agent-num">03</span><span class="agent-name">TARGET</span></div>
+          <span class="agent-badge pink" id="agBadge2">16 BIT</span>
+        </div>
+        <div class="agent-bottom">
+          <canvas class="agent-spark" id="agSpark2"></canvas>
+          <span class="agent-val" id="agVal2">0.93</span>
+        </div>
+      </div>
+
+      <div class="agent-card" id="agCard3">
+        <div class="agent-top">
+          <div class="agent-Top-Left"><span class="agent-num">04</span><span class="agent-name">HASHER</span></div>
+          <span class="agent-badge" id="agBadge3">FILL</span>
+        </div>
+        <div class="agent-bottom">
+          <canvas class="agent-spark" id="agSpark3"></canvas>
+          <span class="agent-val" id="agVal3">0 H/s</span>
+        </div>
+      </div>
+
+      <div class="agent-card" id="agCard4">
+        <div class="agent-top">
+          <div class="agent-Top-Left"><span class="agent-num">05</span><span class="agent-name">VERIFIER</span></div>
+          <span class="agent-badge purple" id="agBadge4">SYNC</span>
+        </div>
+        <div class="agent-bottom">
+          <canvas class="agent-spark" id="agSpark4"></canvas>
+          <span class="agent-val" id="agVal4">0b</span>
+        </div>
+      </div>
+
+      <div class="agent-card" id="agCard5">
+        <div class="agent-top">
+          <div class="agent-Top-Left"><span class="agent-num">06</span><span class="agent-name">THERMAL</span></div>
+          <span class="agent-badge" id="agBadge5">IDLE</span>
+        </div>
+        <div class="agent-bottom">
+          <canvas class="agent-spark" id="agSpark5"></canvas>
+          <span class="agent-val" id="agVal5">100%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. UPPER STAGE: CENTRAL 3D TORUS VORTEX + FLOATING LEFT/RIGHT PANELS -->
+    <section class="upper-stage" aria-label="Orbital Signal Core & Controls">
+      <!-- Full-bleed 3D glowing torus vortex canvas -->
+      <canvas id="vortexCanvas"></canvas>
+
+      <!-- FLOATING LEFT COLUMN (Controls + Header Tickers + Nonce Depth + Volatility Bars) -->
+      <div class="stage-col-left">
+        <!-- Box 1: Rig Controls & Block Header Stream (Styled like MARKET panel) -->
+        <div class="hud-box">
+          <div class="hud-box-title">
+            <span>RIG DECK</span>
+            <span class="tag" id="rigStatusMini">SIM</span>
+          </div>
+
+          <div class="ctrl-btn-pair">
+            <button id="btnStart" class="rig-btn start" type="button">▶ START</button>
+            <button id="btnStop" class="rig-btn stop" type="button" disabled>■ STOP</button>
+          </div>
+
+          <div class="slider-mini">
+            <div class="slider-mini-top"><span>DIFFICULTY</span><b id="lblDiff">16 bit</b></div>
+            <input id="sliderDiff" type="range" min="12" max="40" step="1" value="16" />
+          </div>
+
+          <div class="slider-mini">
+            <div class="slider-mini-top"><span>WORKERS</span><b id="lblWorkers">2 cores</b></div>
+            <input id="sliderWorkers" type="range" min="1" max="16" step="1" value="2" />
+          </div>
+
+          <div id="btnEco" class="eco-row" role="button" tabindex="0" aria-pressed="false">
+            <span>⚡ ECO MODE (BATASI CPU)</span>
+            <b id="lblEco">OFF</b>
+          </div>
+
+          <!-- 6-Row Technical Header Ticker (Matches BTC/ETH/SOL/HYPE rows in screenshot) -->
+          <div class="ticker-list" style="margin-top:2px;">
+            <div class="ticker-row">
+              <div><span class="ticker-sym">VER</span><span class="ticker-sub">4B</span></div>
+              <span class="ticker-val" id="tckVer">20000000</span>
+              <canvas class="ticker-spark" id="tSpark0"></canvas>
+            </div>
+            <div class="ticker-row">
+              <div><span class="ticker-sym">PRV</span><span class="ticker-sub">32B</span></div>
+              <span class="ticker-val" id="tckPrev">a91f..</span>
+              <canvas class="ticker-spark" id="tSpark1"></canvas>
+            </div>
+            <div class="ticker-row">
+              <div><span class="ticker-sym">MRK</span><span class="ticker-sub">32B</span></div>
+              <span class="ticker-val" id="tckMerkle">7c02..</span>
+              <canvas class="ticker-spark" id="tSpark2"></canvas>
+            </div>
+            <div class="ticker-row">
+              <div><span class="ticker-sym">NCE</span><span class="ticker-sub">32b</span></div>
+              <span class="ticker-val" id="tckNonce">00000000</span>
+              <canvas class="ticker-spark" id="tSpark3"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Box 2: NONCE SPACE DEPTH (Matches ORDER BOOK V-chart in screenshot) -->
+        <div class="hud-box">
+          <div class="hud-box-title">
+            <span>NONCE SPACE</span>
+            <span class="tag">32-BIT</span>
+          </div>
+          <canvas id="depthCanvas"></canvas>
+          <div class="depth-footer" id="depthFooter">RANGE 4.29B NONCES</div>
+        </div>
+
+        <!-- Box 3: LEADING ZERO DISTRIBUTION (Matches VOLATILITY bar chart in screenshot) -->
+        <div class="hud-box" style="flex:1;justify-content:space-between;">
+          <div class="hud-box-title">
+            <span>ZERO BIT DIST</span>
+            <span class="tag" id="bestZeroTag">PEAK 0b</span>
+          </div>
+          <div class="vol-big" id="volBigText">16.0b</div>
+          <canvas id="zeroBarsCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- FLOATING RIGHT COLUMN (Evidence Matrix + Worker Handoffs + Difficulty Gauge) -->
+      <div class="stage-col-right">
+        <!-- Box 1: 8x8 EVIDENCE MATRIX (Exact visual match to top-right matrix) -->
+        <div class="hud-box">
+          <div class="hud-box-title">
+            <span>EVIDENCE MATRIX</span>
+            <span class="tag">256-BIT</span>
+          </div>
+          <canvas id="evidenceMatrixCanvas"></canvas>
+        </div>
+
+        <!-- Box 2: HANDOFFS / WORKER LOAD BARS -->
+        <div class="hud-box">
+          <div class="hud-box-title">
+            <span>HANDOFFS</span>
+            <span class="tag" id="handoffTag">(THREADS)</span>
+          </div>
+          <div class="handoff-list">
+            <div class="handoff-item">
+              <div class="handoff-lbl"><span>HEADER</span><span id="hoVal0">100%</span></div>
+              <div class="handoff-track"><div class="handoff-fill" id="hoBar0" style="width:100%;"></div></div>
+            </div>
+            <div class="handoff-item">
+              <div class="handoff-lbl"><span>MUTATOR</span><span id="hoVal1">0%</span></div>
+              <div class="handoff-track"><div class="handoff-fill" id="hoBar1" style="width:12%;"></div></div>
+            </div>
+            <div class="handoff-item">
+              <div class="handoff-lbl"><span>SHA-ROUND-1</span><span id="hoVal2">0%</span></div>
+              <div class="handoff-track"><div class="handoff-fill" id="hoBar2" style="width:12%;"></div></div>
+            </div>
+            <div class="handoff-item">
+              <div class="handoff-lbl"><span>SHA-ROUND-2</span><span id="hoVal3">0%</span></div>
+              <div class="handoff-track"><div class="handoff-fill" id="hoBar3" style="width:12%;"></div></div>
+            </div>
+            <div class="handoff-item">
+              <div class="handoff-lbl"><span>VERIFIER</span><span id="hoVal4">0%</span></div>
+              <div class="handoff-track"><div class="handoff-fill" id="hoBar4" style="width:12%;"></div></div>
+            </div>
+            <div class="handoff-item">
+              <div class="handoff-lbl"><span>ASIC GAP</span><span>10¹⁴×</span></div>
+              <div class="handoff-track"><div class="handoff-fill" style="width:25%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Box 3: DIFFICULTY / TARGET GAUGE (Exact match to RISK GAUGE) -->
+        <div class="hud-box" style="flex:1;justify-content:space-between;">
+          <div class="hud-box-title">
+            <span>DIFFICULTY GAUGE</span>
+            <span class="tag" id="btnNewHeader" style="cursor:pointer;" title="Acak ulang Block Header">↻ NEW HDR</span>
+          </div>
+          <canvas id="riskGaugeCanvas"></canvas>
+          <div class="gauge-sub-metrics">
+            <div><span>BITS</span><b id="gSubBits">16b</b></div>
+            <div><span>HEX '0'</span><b id="gSubHex">4.0</b></div>
+            <div><span>CPULOAD</span><b id="gSubLoad">0%</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5-CARD METRIC RIBBON AT BOTTOM OF VORTEX STAGE -->
+      <div class="stage-bottom-ribbon">
+        <div class="mid-metric-card">
+          <div class="mid-metric-lbl">HASHES / SEC</div>
+          <div class="mid-metric-row">
+            <span class="mid-metric-val" id="midHashrate">0</span>
+            <canvas class="mid-spark" id="mSpark0"></canvas>
+          </div>
+        </div>
+        <div class="mid-metric-card">
+          <div class="mid-metric-lbl">PEAK ZERO RATIO</div>
+          <div class="mid-metric-row">
+            <span class="mid-metric-val" id="midZeroRatio">0.00</span>
+            <canvas class="mid-spark" id="mSpark1"></canvas>
+          </div>
+        </div>
+        <div class="mid-metric-card">
+          <div class="mid-metric-lbl">TARGET BITS</div>
+          <div class="mid-metric-row">
+            <span class="mid-metric-val" id="midTargetBits">16b</span>
+            <canvas class="mid-spark" id="mSpark2"></canvas>
+          </div>
+        </div>
+        <div class="mid-metric-card">
+          <div class="mid-metric-lbl">SIM BLOCKS FOUND</div>
+          <div class="mid-metric-row">
+            <span class="mid-metric-val" id="midBlocks">0 blk</span>
+            <canvas class="mid-spark" id="mSpark3"></canvas>
+          </div>
+        </div>
+        <div class="mid-metric-card">
+          <div class="mid-metric-lbl">ELAPSED TIME</div>
+          <div class="mid-metric-row">
+            <span class="mid-metric-val pink" id="midElapsed">00:00</span>
+            <canvas class="mid-spark" id="mSpark4"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. LOWER SPLIT WORKSPACE: LIVE CODE PANE + TABULAR LIVE LOG -->
+    <section class="lower-split" aria-label="Kernel Code & Live Batch Log">
+      <!-- Left: Code Pane with Educational Explanation in Comments -->
+      <div class="editor-pane">
+        <div class="pane-header">
+          <div class="pane-tabs">
+            <span class="pane-tab" data-tab="edu" id="tabBtnEdu">why_no_money.md</span>
+            <span class="pane-tab active" data-tab="core" id="tabBtnCore">sha256_core.py</span>
+            <span class="pane-tab" data-tab="hdr" id="tabBtnHdr">block_header.py</span>
+          </div>
+          <span class="pane-live-tag" id="codeLiveBadge">STANDBY</span>
+        </div>
+
+        <div class="code-body" id="codeBody">
+          <div class="code-line" data-ln="0"><span class="ln">25</span><span>        worker.<span class="fn">observe</span>(block_header_80b)</span></div>
+          <div class="code-line" data-ln="1"><span class="ln">26</span><span>    <span class="kw">return</span> rig.<span class="fn">verify_target</span>(double_sha256)</span></div>
+          <div class="code-line" data-ln="2"><span class="ln">27</span><span></span></div>
+          <div class="code-line" data-ln="3"><span class="ln">28</span><span><span class="cm"># KENAPA INI TIDAK MENGHASILKAN UANG? (REALITA JARINGAN BITCOIN)</span></span></div>
+          <div class="code-line" data-ln="4"><span class="ln">29</span><span><span class="cm"># Jaringan Bitcoin = ~700.000.000.000.000.000.000 H/s (miliaran miliar H/s)</span></span></div>
+          <div class="code-line" data-ln="5"><span class="ln">30</span><span><span class="cm"># CPU Browser Anda = ~100.000 - 2.000.000 H/s -> peluang statistik = ~0%</span></span></div>
+          <div class="code-line" data-ln="6"><span class="ln">31</span><span><span class="kw">from</span> sha256_lab <span class="kw">import</span> compress256, clz256, target_gate</span></div>
+          <div class="code-line" data-ln="7"><span class="ln">32</span><span><span class="kw">from</span> sandbox <span class="kw">import</span> LocalRig, BlockHeader, ZeroPayoutGuard</span></div>
+          <div class="code-line" data-ln="8"><span class="ln">33</span><span></span></div>
+          <div class="code-line" data-ln="9"><span class="ln">34</span><span>rig = <span class="fn">LocalRig</span>(workers=<span id="codeWorkerNum" class="st">2</span>, mode=<span class="st">"educational_no_payout"</span>)</span></div>
+          <div class="code-line active" data-ln="10"><span class="ln">35</span><span>hdr = <span class="fn">BlockHeader</span>([<span class="st">"VER"</span>, <span class="st">"PREV_HASH"</span>, <span class="st">"MERKLE"</span>, <span class="st">"TIME"</span>, <span class="st">"BITS"</span>])</span></div>
+          <div class="code-line" data-ln="11"><span class="ln">36</span><span></span></div>
+          <div class="code-line" data-ln="12"><span class="ln">37</span><span><span class="kw">@rig.on</span>(<span class="st">"batch_tick"</span>)</span></div>
+          <div class="code-line" data-ln="13"><span class="ln">38</span><span><span class="kw">def</span> <span class="fn">on_batch</span>(nonce_32b):</span></div>
+          <div class="code-line" data-ln="14"><span class="ln">39</span><span>    h1 = <span class="fn">compress256</span>(hdr.bytes76 + nonce_32b)<span class="right-cm"># SHA-256 Round 1</span></span></div>
+          <div class="code-line" data-ln="15"><span class="ln">40</span><span>    h2 = <span class="fn">compress256</span>(h1)<span class="right-cm"># SHA-256 Round 2</span></span></div>
+          <div class="code-line" data-ln="16"><span class="ln">41</span><span>    <span class="kw">if</span> <span class="fn">clz256</span>(h2) >= rig.difficulty_bits: <span class="fn">emit_sim_block</span>(h2)</span></div>
+        </div>
+      </div>
+
+      <!-- Right: Live Log Table (Max 200 Rows, Highlighted Leading Zeros) -->
+      <div class="log-pane">
+        <div class="pane-header">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span style="font-weight:800;color:var(--text-bright);">LIVE LOG</span>
+            <div class="log-filter-group">
+              <span class="log-filter active">ALL</span>
+              <span class="log-filter">BATCHES</span>
+              <span class="log-filter">HITS</span>
+              <span class="log-filter" id="btnClearLog" title="Bersihkan Log">CLEAR</span>
+            </div>
+          </div>
+          <span style="font-size:8.5px;color:var(--text-dim);">MAX 200 ROWS · LEADING '0' HIGHLIGHTED</span>
+        </div>
+
+        <div id="terminalLog" class="terminal-log" role="log" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 6. BOTTOM 6-KPI TELEMETRY DECK (EXACT MATCH TO SCREENSHOT BOTTOM) -->
+    <section class="bottom-kpi-deck" aria-label="Bottom Telemetry Metrics">
+      <!-- Tile 1: TOTAL HASHES (Matches DECISIONS 10,106) -->
+      <div class="kpi-tile">
+        <div class="kpi-tile-lbl">TOTAL HASHES</div>
+        <div class="kpi-tile-big" id="botTotalHashes">0</div>
+        <canvas class="kpi-tile-spark" id="bSpark0"></canvas>
+      </div>
+
+      <!-- Tile 2: BEST LEADING ZERO (Matches GATE PASS 91.0%) -->
+      <div class="kpi-tile">
+        <div class="kpi-tile-lbl">PEAK LEADING ZERO</div>
+        <div class="kpi-tile-big" id="botBestZeros">0 bit</div>
+        <canvas class="kpi-tile-spark" id="bSpark1"></canvas>
+      </div>
+
+      <!-- Tile 3: BATCH LATENCY (Matches MEDIAN LATENCY 258 ms) -->
+      <div class="kpi-tile">
+        <div class="kpi-tile-lbl">BATCH LATENCY</div>
+        <div class="kpi-tile-big" id="botLatency">0 ms</div>
+        <canvas class="kpi-tile-spark" id="bSpark2"></canvas>
+      </div>
+
+      <!-- Tile 4: EXPECTED HASHES 2^N (Replaces $0.42 in pink font — NO MONEY ALLOWED) -->
+      <div class="kpi-tile">
+        <div class="kpi-tile-lbl">EXPECTED TRIES (2^N)</div>
+        <div class="kpi-tile-big pink" id="botExpectedTries">65.5K</div>
+        <canvas class="kpi-tile-spark" id="bSpark3"></canvas>
+      </div>
+
+      <!-- Tile 5: THERMAL / BATTERY LOAD (Matches POSITION RISK LOW + square indicators) -->
+      <div class="kpi-tile">
+        <div class="kpi-tile-lbl">THERMAL / BATTERY</div>
+        <div class="kpi-tile-big" id="botThermalText">LOW</div>
+        <div class="thermal-squares" id="thermalSquares">
+          <span class="t-sq on"></span>
+          <span class="t-sq"></span>
+          <span class="t-sq"></span>
+          <span class="t-sq"></span>
+          <span class="t-sq"></span>
+          <span class="t-sq"></span>
+          <span class="t-sq"></span>
+          <span class="t-sq"></span>
+        </div>
+      </div>
+
+      <!-- Tile 6: REAL-TIME HASHRATE FLOW (Matches SIGNAL FLOW bar/area chart) -->
+      <div class="kpi-tile">
+        <div class="kpi-tile-lbl">HASHRATE FLOW</div>
+        <canvas class="kpi-tile-spark" id="bSpark5" style="height:44px;"></canvas>
+      </div>
+    </section>
+
+    <!-- 7. FOOTER -->
+    <footer class="hud-footer">
+      <span>BITCOIN MINING LAB · LOCAL SHA-256×2 SANDBOX</span>
+      <span>EDUKASI · TANPA PAYOUT · TIDAK TERHUBUNG KE JARINGAN BITCOIN</span>
+      <span>ORBITAL SIGNAL ENGINE</span>
+    </footer>
+
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // 1. STATE & KONFIGURASI SIMULASI
+      // =========================================================================
+      const hwCores = Math.max(1, Math.min(32, navigator.hardwareConcurrency || 4));
+      const defaultWorkers = Math.max(1, Math.floor(hwCores / 2));
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const state = {
+        theme: 'jev', // 'jev' (Pink/Magenta exact match) or 'matrix' (Green/Amber)
+        isMining: false,
+        ecoMode: false,
+        difficultyBits: 16,
+        workerCount: defaultWorkers,
+        workers: [],
+        workerBlobUrl: null,
+
+        // Statistik teknis murni (tanpa BTC/uang)
+        totalHashes: 0,
+        blocksFound: 0,
+        bestZeroBits: 0,
+        bestHashHex: '0000000000000000000000000000000000000000000000000000000000000000',
+        bestNonce: 0,
+        lastSampleHashHex: '0000a7f39e8c1b44d0e2f1a8c3b97510f4d8a2e6c190837465fa91bc20394812',
+        lastSampleNonce: 0x9f3a21bc,
+        lastSampleZeros: 16,
+        lastBatchMs: 0,
+        currentHashrate: 0,
+        peakHashrate: 0,
+
+        accumulatedMs: 0,
+        lastStartTimestamp: 0,
+        hashesSinceLastTick: 0,
+        lastTickTime: performance.now(),
+        hashrateHistory: new Array(48).fill(0),
+
+        // Distribusi leading zero bits (16 bar untuk Zero Bit Dist)
+        zeroDistBars: new Array(16).fill(1),
+
+        // Sparklines data
+        agentSparks: Array.from({ length: 6 }, () => new Array(22).fill(0.3)),
+        tickerSparks: Array.from({ length: 4 }, () => new Array(16).fill(0.5)),
+        midSparks: Array.from({ length: 5 }, () => new Array(20).fill(0.2)),
+        botSparks: Array.from({ length: 5 }, () => new Array(24).fill(0.25)),
+
+        blockHeader: {
+          version: 0x20000000,
+          prevHashHex: '',
+          merkleRootHex: '',
+          timestamp: Math.floor(Date.now() / 1000),
+          header76Bytes: new Uint8Array(76)
+        }
+      };
+
+      // =========================================================================
+      // 2. REFERENSI DOM
+      // =========================================================================
+      const el = {
+        btnTheme: document.getElementById('btnTheme'),
+        statusBadge: document.getElementById('statusBadge'),
+        clockDate: document.getElementById('clockDate'),
+        clockTime: document.getElementById('clockTime'),
+
+        btnStart: document.getElementById('btnStart'),
+        btnStop: document.getElementById('btnStop'),
+        sliderDiff: document.getElementById('sliderDiff'),
+        lblDiff: document.getElementById('lblDiff'),
+        sliderWorkers: document.getElementById('sliderWorkers'),
+        lblWorkers: document.getElementById('lblWorkers'),
+        btnEco: document.getElementById('btnEco'),
+        lblEco: document.getElementById('lblEco'),
+        btnNewHeader: document.getElementById('btnNewHeader'),
+
+        tckVer: document.getElementById('tckVer'),
+        tckPrev: document.getElementById('tckPrev'),
+        tckMerkle: document.getElementById('tckMerkle'),
+        tckNonce: document.getElementById('tckNonce'),
+
+        bestZeroTag: document.getElementById('bestZeroTag'),
+        volBigText: document.getElementById('volBigText'),
+        gSubBits: document.getElementById('gSubBits'),
+        gSubHex: document.getElementById('gSubHex'),
+        gSubLoad: document.getElementById('gSubLoad'),
+
+        midHashrate: document.getElementById('midHashrate'),
+        midZeroRatio: document.getElementById('midZeroRatio'),
+        midTargetBits: document.getElementById('midTargetBits'),
+        midBlocks: document.getElementById('midBlocks'),
+        midElapsed: document.getElementById('midElapsed'),
+
+        codeWorkerNum: document.getElementById('codeWorkerNum'),
+        codeLiveBadge: document.getElementById('codeLiveBadge'),
+        codeLines: document.querySelectorAll('#codeBody .code-line'),
+        terminalLog: document.getElementById('terminalLog'),
+        btnClearLog: document.getElementById('btnClearLog'),
+
+        botTotalHashes: document.getElementById('botTotalHashes'),
+        botBestZeros: document.getElementById('botBestZeros'),
+        botLatency: document.getElementById('botLatency'),
+        botExpectedTries: document.getElementById('botExpectedTries'),
+        botThermalText: document.getElementById('botThermalText'),
+        thermalSquares: document.getElementById('thermalSquares').children,
+
+        vortexCanvas: document.getElementById('vortexCanvas'),
+        depthCanvas: document.getElementById('depthCanvas'),
+        zeroBarsCanvas: document.getElementById('zeroBarsCanvas'),
+        evidenceMatrixCanvas: document.getElementById('evidenceMatrixCanvas'),
+        riskGaugeCanvas: document.getElementById('riskGaugeCanvas')
+      };
+
+      // =========================================================================
+      // 3. UTILITAS PEMFORMATAN & BLOCK HEADER
+      // =========================================================================
+      function getThemeColors() {
+        if (state.theme === 'matrix') {
+          return {
+            primary: '#00ff88',
+            secondary: '#ffb000',
+            tertiary: '#00e5ff',
+            glow: 'rgba(0, 255, 136, 0.5)',
+            coreInner: 'rgba(0, 255, 136, 0.85)',
+            coreMid: 'rgba(0, 200, 110, 0.25)'
+          };
+        }
+        return {
+          primary: '#ff4fa3',
+          secondary: '#d96bff',
+          tertiary: '#ffffff',
+          glow: 'rgba(255, 79, 163, 0.55)',
+          coreInner: 'rgba(255, 220, 245, 0.92)',
+          coreMid: 'rgba(217, 107, 255, 0.28)'
+        };
+      }
+
+      function randomHex32Bytes() {
+        const arr = new Uint8Array(32);
+        crypto.getRandomValues(arr);
+        let hex = '';
+        for (let i = 0; i < 32; i++) hex += arr[i].toString(16).padStart(2, '0');
+        return hex;
+      }
+
+      function hexToBytes(hex) {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < bytes.length; i++) {
+          bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+        }
+        return bytes;
+      }
+
+      function computeTargetHex(difficultyBits) {
+        const fullZeroBytes = Math.floor(difficultyBits / 8);
+        const remBits = difficultyBits % 8;
+        const bytes = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+          if (i < fullZeroBytes) bytes[i] = 0x00;
+          else if (i === fullZeroBytes) bytes[i] = (0xff >>> remBits) & 0xff;
+          else bytes[i] = 0xff;
+        }
+        let hex = '';
+        for (let i = 0; i < 32; i++) hex += bytes[i].toString(16).padStart(2, '0');
+        return hex;
+      }
+
+      function formatCompact(n) {
+        if (n >= 1e12) return (n / 1e12).toFixed(1) + 'T';
+        if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+        if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+        return String(Math.round(n));
+      }
+
+      function formatHashrate(hps) {
+        if (hps >= 1e6) return (hps / 1e6).toFixed(2) + ' MH/s';
+        if (hps >= 1e3) return (hps / 1e3).toFixed(1) + ' kH/s';
+        return Math.round(hps) + ' H/s';
+      }
+
+      function formatTimeWithMs(d) {
+        const h = String(d.getHours()).padStart(2, '0');
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const s = String(d.getSeconds()).padStart(2, '0');
+        const ms = String(d.getMilliseconds()).padStart(3, '0');
+        return `${h}:${m}:${s}.${ms}`;
+      }
+
+      function generateCandidateHeader(logIt = false) {
+        state.blockHeader.version = 0x20000000;
+        state.blockHeader.prevHashHex = randomHex32Bytes();
+        state.blockHeader.merkleRootHex = randomHex32Bytes();
+        state.blockHeader.timestamp = Math.floor(Date.now() / 1000);
+
+        const buf = new ArrayBuffer(76);
+        const view = new DataView(buf);
+        const uint8 = new Uint8Array(buf);
+
+        view.setUint32(0, state.blockHeader.version, true);
+        uint8.set(hexToBytes(state.blockHeader.prevHashHex), 4);
+        uint8.set(hexToBytes(state.blockHeader.merkleRootHex), 36);
+        view.setUint32(68, state.blockHeader.timestamp, true);
+        view.setUint32(72, state.difficultyBits, true);
+
+        state.blockHeader.header76Bytes = uint8;
+        updateHeaderUI();
+
+        if (state.isMining) broadcastConfigToWorkers();
+        if (logIt) {
+          appendLogRow('header', `new prev=${state.blockHeader.prevHashHex.slice(0, 10)}... mrk=${state.blockHeader.merkleRootHex.slice(0, 10)}...`, '80B', false);
+        }
+      }
+
+      function updateHeaderUI() {
+        el.tckVer.textContent = state.blockHeader.version.toString(16);
+        el.tckPrev.textContent = state.blockHeader.prevHashHex.slice(0, 6) + '..';
+        el.tckMerkle.textContent = state.blockHeader.merkleRootHex.slice(0, 6) + '..';
+
+        el.lblDiff.textContent = `${state.difficultyBits} bit`;
+        el.midTargetBits.textContent = `${state.difficultyBits}b`;
+        el.volBigText.textContent = `${state.difficultyBits}.0b`;
+        el.gSubBits.textContent = `${state.difficultyBits}b`;
+        el.gSubHex.textContent = (state.difficultyBits / 4).toFixed(1);
+
+        const tries = Math.pow(2, state.difficultyBits);
+        el.botExpectedTries.textContent = formatCompact(tries);
+        document.getElementById('agBadge2').textContent = `${state.difficultyBits} BIT`;
+        document.getElementById('agVal2').textContent = (state.difficultyBits / 40).toFixed(2);
+      }
+
+      // =========================================================================
+      // 4. WEB WORKER DOUBLE SHA-256 DARI BLOB URL
+      // =========================================================================
+      function createWorkerBlobUrl() {
+        const workerCode = `
+          'use strict';
+
+          const K = new Uint32Array([
+            0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+            0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+            0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+            0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+            0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+            0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+            0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+            0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+          ]);
+
+          const W = new Uint32Array(64);
+          const H1 = new Uint32Array(8);
+          const H2 = new Uint32Array(8);
+          const block0 = new Uint32Array(16);
+          const block1 = new Uint32Array(16);
+          const secondBlock = new Uint32Array(16);
+
+          function sha256Compress(state, block) {
+            for (let i = 0; i < 16; i++) W[i] = block[i];
+            for (let i = 16; i < 64; i++) {
+              const v0 = W[i - 15];
+              const s0 = ((v0 >>> 7) | (v0 << 25)) ^ ((v0 >>> 18) | (v0 << 14)) ^ (v0 >>> 3);
+              const v1 = W[i - 2];
+              const s1 = ((v1 >>> 17) | (v1 << 15)) ^ ((v1 >>> 19) | (v1 << 13)) ^ (v1 >>> 10);
+              W[i] = (W[i - 16] + s0 + W[i - 7] + s1) >>> 0;
+            }
+
+            let a = state[0], b = state[1], c = state[2], d = state[3];
+            let e = state[4], f = state[5], g = state[6], h = state[7];
+
+            for (let i = 0; i < 64; i++) {
+              const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+              const ch = (e & f) ^ ((~e) & g);
+              const temp1 = (h + S1 + ch + K[i] + W[i]) >>> 0;
+              const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+              const maj = (a & b) ^ (a & c) ^ (b & c);
+              const temp2 = (S0 + maj) >>> 0;
+
+              h = g; g = f; f = e;
+              e = (d + temp1) >>> 0;
+              d = c; c = b; b = a;
+              a = (temp1 + temp2) >>> 0;
+            }
+
+            state[0] = (state[0] + a) >>> 0;
+            state[1] = (state[1] + b) >>> 0;
+            state[2] = (state[2] + c) >>> 0;
+            state[3] = (state[3] + d) >>> 0;
+            state[4] = (state[4] + e) >>> 0;
+            state[5] = (state[5] + f) >>> 0;
+            state[6] = (state[6] + g) >>> 0;
+            state[7] = (state[7] + h) >>> 0;
+          }
+
+          function countLeadingZeroBits(words) {
+            let total = 0;
+            for (let i = 0; i < 8; i++) {
+              const w = words[i] >>> 0;
+              if (w === 0) total += 32;
+              else {
+                total += Math.clz32(w);
+                break;
+              }
+            }
+            return total;
+          }
+
+          function wordsToHex(words) {
+            let out = '';
+            for (let i = 0; i < 8; i++) {
+              out += (words[i] >>> 0).toString(16).padStart(8, '0');
+            }
+            return out;
+          }
+
+          let workerId = 0;
+          let difficultyBits = 16;
+          let ecoMode = false;
+          let running = false;
+
+          function loadHeader76(bytes76) {
+            const dv = new DataView(bytes76.buffer, bytes76.byteOffset, 76);
+            for (let i = 0; i < 16; i++) block0[i] = dv.getUint32(i * 4, false);
+            block1[0] = dv.getUint32(64, false);
+            block1[1] = dv.getUint32(68, false);
+            block1[2] = dv.getUint32(72, false);
+            block1[4] = 0x80000000;
+            for (let i = 5; i < 15; i++) block1[i] = 0;
+            block1[15] = 640;
+
+            secondBlock[8] = 0x80000000;
+            for (let i = 9; i < 15; i++) secondBlock[i] = 0;
+            secondBlock[15] = 256;
+          }
+
+          const seedArr = new Uint32Array(1);
+          self.crypto.getRandomValues(seedArr);
+          let rngState = seedArr[0] || 0x9f3a21bc;
+
+          function nextRandomNonce() {
+            let x = rngState;
+            x ^= x << 13;
+            x ^= x >>> 17;
+            x ^= x << 5;
+            rngState = x >>> 0;
+            return rngState;
+          }
+
+          function mineBatch() {
+            if (!running) return;
+            const t0 = performance.now();
+
+            const batchSize = ecoMode ? 1500 : 12000;
+            let bestZerosInBatch = -1;
+            let bestNonceInBatch = 0;
+            let bestHashInBatch = '';
+            const hits = [];
+            const bars16 = new Uint32Array(16);
+
+            for (let i = 0; i < batchSize; i++) {
+              const nonce = (nextRandomNonce() + i) >>> 0;
+              block1[3] = nonce;
+
+              H1[0] = 0x6a09e667; H1[1] = 0xbb67ae85; H1[2] = 0x3c6ef372; H1[3] = 0xa54ff53a;
+              H1[4] = 0x510e527f; H1[5] = 0x9b05688c; H1[6] = 0x1f83d9ab; H1[7] = 0x5be0cd19;
+              sha256Compress(H1, block0);
+              sha256Compress(H1, block1);
+
+              for (let j = 0; j < 8; j++) secondBlock[j] = H1[j];
+              H2[0] = 0x6a09e667; H2[1] = 0xbb67ae85; H2[2] = 0x3c6ef372; H2[3] = 0xa54ff53a;
+              H2[4] = 0x510e527f; H2[5] = 0x9b05688c; H2[6] = 0x1f83d9ab; H2[7] = 0x5be0cd19;
+              sha256Compress(H2, secondBlock);
+
+              const zeroBits = countLeadingZeroBits(H2);
+              const idx = Math.min(15, zeroBits);
+              bars16[idx]++;
+
+              if (zeroBits > bestZerosInBatch) {
+                bestZerosInBatch = zeroBits;
+                bestNonceInBatch = nonce;
+                bestHashInBatch = wordsToHex(H2);
+              }
+
+              if (zeroBits >= difficultyBits) {
+                hits.push({
+                  nonce: nonce,
+                  hashHex: wordsToHex(H2),
+                  zeroBits: zeroBits
+                });
+              }
+            }
+
+            const elapsedMs = performance.now() - t0;
+
+            self.postMessage({
+              type: 'BATCH_RESULT',
+              workerId: workerId,
+              hashesComputed: batchSize,
+              elapsedMs: elapsedMs,
+              sampleNonce: bestNonceInBatch,
+              sampleHashHex: bestHashInBatch,
+              sampleZeroBits: bestZerosInBatch,
+              bars16: bars16,
+              hits: hits
+            });
+
+            if (running) {
+              setTimeout(mineBatch, ecoMode ? 55 : 0);
+            }
+          }
+
+          self.onmessage = function (e) {
+            const msg = e.data;
+            if (msg.type === 'START') {
+              workerId = msg.workerId;
+              difficultyBits = msg.difficultyBits;
+              ecoMode = msg.ecoMode;
+              loadHeader76(msg.header76Bytes);
+              if (!running) {
+                running = true;
+                mineBatch();
+              }
+            } else if (msg.type === 'CONFIG') {
+              difficultyBits = msg.difficultyBits;
+              ecoMode = msg.ecoMode;
+              if (msg.header76Bytes) loadHeader76(msg.header76Bytes);
+            }
+          };
+        `;
+
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        return URL.createObjectURL(blob);
+      }
+
+      // =========================================================================
+      // 5. START / STOP / WORKER MANAGEMENT
+      // =========================================================================
+      function startMining() {
+        if (state.isMining) return;
+        state.isMining = true;
+        state.lastStartTimestamp = performance.now();
+        state.lastTickTime = performance.now();
+        state.hashesSinceLastTick = 0;
+
+        if (!state.workerBlobUrl) {
+          state.workerBlobUrl = createWorkerBlobUrl();
+        }
+
+        spawnWorkers(state.workerCount);
+        syncControlUI();
+        appendLogRow('system', `START · ${state.workerCount} workers active · target >= ${state.difficultyBits}b`, 'LIVE', false);
+      }
+
+      function stopMining() {
+        if (!state.isMining) return;
+        state.isMining = false;
+        state.accumulatedMs += performance.now() - state.lastStartTimestamp;
+        state.currentHashrate = 0;
+
+        terminateAllWorkers();
+        syncControlUI();
+        appendLogRow('system', 'STOP · All Web Workers terminated via terminate()', 'IDLE', false);
+      }
+
+      function spawnWorkers(count) {
+        terminateAllWorkers();
+        for (let i = 0; i < count; i++) {
+          const w = new Worker(state.workerBlobUrl);
+          w.onmessage = handleWorkerMessage;
+          w.postMessage({
+            type: 'START',
+            workerId: i + 1,
+            difficultyBits: state.difficultyBits,
+            ecoMode: state.ecoMode,
+            header76Bytes: state.blockHeader.header76Bytes
+          });
+          state.workers.push(w);
+        }
+      }
+
+      function terminateAllWorkers() {
+        for (let i = 0; i < state.workers.length; i++) {
+          state.workers[i].terminate();
+        }
+        state.workers = [];
+      }
+
+      function broadcastConfigToWorkers() {
+        for (let i = 0; i < state.workers.length; i++) {
+          state.workers[i].postMessage({
+            type: 'CONFIG',
+            difficultyBits: state.difficultyBits,
+            ecoMode: state.ecoMode,
+            header76Bytes: state.blockHeader.header76Bytes
+          });
+        }
+      }
+
+      // =========================================================================
+      // 6. WORKER MESSAGE HANDLER & TABULAR LIVE LOG (MAX 200 ROWS)
+      // =========================================================================
+      let lastLogTime = 0;
+      const roleNames = ['watcher', 'mutator', 'sha256_1', 'sha256_2', 'verifier', 'executor'];
+
+      function handleWorkerMessage(e) {
+        if (!state.isMining) return;
+        const data = e.data;
+        if (data.type !== 'BATCH_RESULT') return;
+
+        state.totalHashes += data.hashesComputed;
+        state.hashesSinceLastTick += data.hashesComputed;
+        state.lastSampleHashHex = data.sampleHashHex;
+        state.lastSampleNonce = data.sampleNonce;
+        state.lastSampleZeros = data.sampleZeroBits;
+        state.lastBatchMs = Math.round(data.elapsedMs);
+
+        for (let i = 0; i < 16; i++) {
+          state.zeroDistBars[i] += data.bars16[i];
+        }
+
+        if (data.sampleZeroBits > state.bestZeroBits) {
+          state.bestZeroBits = data.sampleZeroBits;
+          state.bestHashHex = data.sampleHashHex;
+          state.bestNonce = data.sampleNonce;
+          el.bestZeroTag.textContent = `PEAK ${state.bestZeroBits}b`;
+          el.botBestZeros.textContent = `${state.bestZeroBits} bit`;
+          document.getElementById('agVal4').textContent = `${state.bestZeroBits}b`;
+        }
+
+        el.tckNonce.textContent = (data.sampleNonce >>> 0).toString(16).padStart(8, '0');
+        document.getElementById('agVal1').textContent = '0x' + (data.sampleNonce >>> 0).toString(16).slice(0, 4);
+
+        if (data.hits && data.hits.length > 0) {
+          for (let i = 0; i < data.hits.length; i++) {
+            const hit = data.hits[i];
+            state.blocksFound++;
+            const msgHtml = formatHashLogMessage(hit.nonce, hit.hashHex);
+            appendLogRow('BLOCK_HIT', msgHtml, `${hit.zeroBits}b ★`, true);
+            triggerShockwave();
+          }
+          el.midBlocks.textContent = `${state.blocksFound} blk`;
+        } else {
+          const now = performance.now();
+          if (now - lastLogTime >= 85) {
+            lastLogTime = now;
+            const role = roleNames[(data.workerId + Math.floor(now)) % roleNames.length];
+            const msgHtml = formatHashLogMessage(data.sampleNonce, data.sampleHashHex);
+            appendLogRow(role, msgHtml, `${data.sampleZeroBits}b`, false);
+          }
+        }
+      }
+
+      function countLeadingHexZeros(hexStr) {
+        let c = 0;
+        while (c < hexStr.length && hexStr[c] === '0') c++;
+        return c;
+      }
+
+      function formatHashLogMessage(nonce, hashHex) {
+        const nonceHex = '0x' + (nonce >>> 0).toString(16).padStart(8, '0');
+        const targetShort = computeTargetHex(state.difficultyBits).slice(0, 8) + '..';
+        const leadHexZeros = countLeadingHexZeros(hashHex);
+        const zeroPart = hashHex.slice(0, leadHexZeros);
+        const restPart = hashHex.slice(leadHexZeros, 16) + '...';
+
+        return `nonce=${nonceHex} hash=<span class="zero-hi">${zeroPart}</span>${restPart} (target ${targetShort})`;
+      }
+
+      function appendLogRow(role, messageHtml, rightTag, isHit) {
+        const row = document.createElement('div');
+        row.className = 'log-item' + (isHit ? ' hit-row' : '');
+        const ts = formatTimeWithMs(new Date());
+
+        row.innerHTML =
+          `<span class="c-ts">[${ts}]</span>` +
+          `<span class="c-role">${role}</span>` +
+          `<span class="c-msg">${messageHtml}</span>` +
+          `<span class="c-delta">${rightTag}</span>`;
+
+        el.terminalLog.appendChild(row);
+
+        while (el.terminalLog.childElementCount > 200) {
+          el.terminalLog.removeChild(el.terminalLog.firstElementChild);
+        }
+        el.terminalLog.scrollTop = el.terminalLog.scrollHeight;
+      }
+
+      function syncControlUI() {
+        el.btnStart.disabled = state.isMining;
+        el.btnStop.disabled = !state.isMining;
+
+        if (!state.isMining) {
+          el.statusBadge.setAttribute('data-status', 'IDLE');
+          el.statusBadge.textContent = 'IDLE';
+          el.codeLiveBadge.textContent = 'STANDBY';
+          document.getElementById('agBadge1').textContent = 'STANDBY';
+          document.getElementById('agBadge5').textContent = 'IDLE';
+        } else if (state.ecoMode) {
+          el.statusBadge.setAttribute('data-status', 'ECO');
+          el.statusBadge.textContent = 'ECO LIVE';
+          el.codeLiveBadge.textContent = 'LIVE · ECO';
+          document.getElementById('agBadge1').textContent = 'ACTIVE';
+          document.getElementById('agBadge5').textContent = 'ECO';
+        } else {
+          el.statusBadge.setAttribute('data-status', 'MINING');
+          el.statusBadge.textContent = 'LIVE';
+          el.codeLiveBadge.textContent = 'LIVE';
+          document.getElementById('agBadge1').textContent = 'ACTIVE';
+          document.getElementById('agBadge5').textContent = 'MAX';
+        }
+
+        el.btnEco.setAttribute('aria-pressed', state.ecoMode ? 'true' : 'false');
+        el.lblEco.textContent = state.ecoMode ? 'ON' : 'OFF';
+        document.getElementById('agVal5').textContent = state.ecoMode ? '25%' : '100%';
+
+        // Handoffs bars
+        const activePct = state.isMining ? (state.ecoMode ? 38 : 92) : 8;
+        for (let i = 1; i <= 4; i++) {
+          const jitter = state.isMining ? Math.round(activePct - (i * 3)) : 8;
+          document.getElementById(`hoBar${i}`).style.width = jitter + '%';
+          document.getElementById(`hoVal${i}`).textContent = state.isMining ? jitter + '%' : 'IDLE';
+        }
+
+        // Thermal & Battery square indicators
+        const loadScore = !state.isMining ? 1 : (state.ecoMode ? 3 : Math.min(8, 2 + Math.ceil((state.workerCount / hwCores) * 6)));
+        el.botThermalText.textContent = !state.isMining ? 'LOW' : (state.ecoMode ? 'ECO' : (loadScore >= 6 ? 'HIGH' : 'MED'));
+        el.gSubLoad.textContent = !state.isMining ? '0%' : (state.ecoMode ? '25%' : Math.round((state.workerCount / hwCores) * 100) + '%');
+
+        for (let i = 0; i < el.thermalSquares.length; i++) {
+          el.thermalSquares[i].className = 't-sq' + (i < loadScore ? (i >= 5 ? ' hot' : ' on') : '');
+        }
+      }
+
+      // =========================================================================
+      // 7. VISUALISASI UTAMA: 3D TORUS VORTEX (ADDITIVE GLOW DONUT) + CALLOUTS
+      // =========================================================================
+      const vCtx = el.vortexCanvas.getContext('2d');
+      const dCtx = el.depthCanvas.getContext('2d');
+      const zCtx = el.zeroBarsCanvas.getContext('2d');
+      const mCtx = el.evidenceMatrixCanvas.getContext('2d');
+      const gCtx = el.riskGaugeCanvas.getContext('2d');
+
+      // 1.400 filamen + 80 cincin serat magnetik agar donat 3D padat, berputar mulus, dan menyala terang
+      const filaments = [];
+      const FILAMENT_COUNT = 1400;
+      for (let i = 0; i < FILAMENT_COUNT; i++) {
+        filaments.push({
+          u: Math.random() * Math.PI * 2,
+          v: Math.random() * Math.PI * 2,
+          // Kecepatan toroidal (mengelilingi cincin donat) & poloidal (masuk ke lubang tengah)
+          speedU: (0.014 + Math.random() * 0.024) * (i % 7 === 0 ? -0.7 : 1),
+          speedV: 0.032 + Math.random() * 0.048,
+          radialLayer: 0.78 + Math.random() * 0.34,
+          isHot: Math.random() > 0.72,
+          size: 0.9 + Math.random() * 1.4
+        });
+      }
+
+      const shockwaves = [];
+      let flashIntensity = 0;
+
+      function triggerShockwave() {
+        flashIntensity = 1.0;
+        shockwaves.push({ r: 22, alpha: 1.0 });
+      }
+
+      // Proyeksi 3D Torus dengan efek perspektif kamera dan rotasi sumbu penuh
+      function projectTorus(u, v, cx, cy, R, r, tiltX, wobbleZ) {
+        const cosV = Math.cos(v);
+        const sinV = Math.sin(v);
+        const x0 = (R + r * cosV) * Math.cos(u);
+        const y0 = (R + r * cosV) * Math.sin(u);
+        const z0 = r * sinV;
+
+        // Goyangan rotasi sumbu Z (gyroscopic wobble)
+        const cosZ = Math.cos(wobbleZ);
+        const sinZ = Math.sin(wobbleZ);
+        const x1 = x0 * cosZ - y0 * sinZ;
+        const y1 = x0 * sinZ + y0 * cosZ;
+
+        // Kemiringan sudut pandang (tilt X)
+        const cosT = Math.cos(tiltX);
+        const sinT = Math.sin(tiltX);
+        const y2 = y1 * cosT - z0 * sinT;
+        const z2 = y1 * sinT + z0 * cosT;
+
+        // Perspektif kamera supaya bagian depan donat tampak lebih besar dan berdimensi
+        const fov = 900;
+        const scale = fov / (fov - z2 * 0.45);
+        const px = cx + x1 * 1.32 * scale;
+        const py = cy + y2 * scale;
+        const depth = z2 / (R + r);
+        return { x: px, y: py, depth: depth, cosV: cosV, scale: scale };
+      }
+
+      function drawHudCallout(ctx, dpr, ax, ay, bx, by, bw, bh, title, subText, palette) {
+        ctx.save();
+        // Titik simpul menyala di permukaan donat
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(ax, ay, 3 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = palette.primary;
+        ctx.lineWidth = 1.3 * dpr;
+        ctx.beginPath();
+        ctx.arc(ax, ay, 6.5 * dpr, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Garis penunjuk berbelok ke kotak callout
+        const kneeX = ax + (bx - ax) * 0.52;
+        ctx.strokeStyle = 'rgba(255, 235, 252, 0.55)';
+        ctx.lineWidth = 1.05 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(kneeX, by + bh * 0.5);
+        ctx.lineTo(bx, by + bh * 0.5);
+        ctx.stroke();
+
+        // Kartu Callout HUD
+        ctx.fillStyle = 'rgba(9, 7, 14, 0.92)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.lineWidth = 1 * dpr;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 4 * dpr);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = `800 ${9.5 * dpr}px "JetBrains Mono", monospace`;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(title, bx + 8 * dpr, by + 15 * dpr);
+
+        ctx.font = `500 ${8.5 * dpr}px "JetBrains Mono", monospace`;
+        ctx.fillStyle = '#c8b8df';
+        ctx.fillText(subText, bx + 8 * dpr, by + 28 * dpr);
+
+        // Bar sinyal di kanan bawah kotak
+        const sbx = bx + bw - 22 * dpr;
+        const sby = by + bh - 6 * dpr;
+        for (let b = 0; b < 4; b++) {
+          const hBar = (3 + b * 2.2) * dpr;
+          ctx.fillStyle = b < 3 || state.isMining ? palette.primary : '#38284d';
+          ctx.fillRect(sbx + b * 4 * dpr, sby - hBar, 2.5 * dpr, hBar);
+        }
+        ctx.restore();
+      }
+
+      function drawSmallPillTag(ctx, dpr, ax, ay, bx, by, label, palette) {
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(ax, ay, 2.5 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(245, 239, 250, 0.38)';
+        ctx.lineWidth = 0.95 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+
+        const tw = (label.length * 5.8 + 14) * dpr;
+        const th = 16 * dpr;
+        ctx.fillStyle = 'rgba(10, 8, 15, 0.9)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.24)';
+        ctx.beginPath();
+        ctx.roundRect(bx - tw / 2, by - th / 2, tw, th, 3 * dpr);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = `700 ${8 * dpr}px "JetBrains Mono", monospace`;
+        ctx.fillStyle = palette.primary;
+        ctx.fillText('• ' + label, bx - tw / 2 + 5 * dpr, by + 3 * dpr);
+        ctx.restore();
+      }
+
+      let vortexPhase = 0;
+      let activeCodeIdx = 10;
+      let lastCodeTick = 0;
+      let lastSparkShiftTick = 0;
+      let matrixScanIdx = 0;
+      let activeAgentStage = 2;
+
+      function animateFrame(ts) {
+        const palette = getThemeColors();
+
+        // 1. Animasi UI Berkelanjutan (Code Editor Cursor + Pipeline Stage + Sparklines 60fps)
+        // Berjalan dengan ritme hidup sejak dibuka (IDLE) dan makin cepat saat MINING
+        const codeInterval = state.isMining ? (state.ecoMode ? 170 : 65) : 320;
+        if (ts - lastCodeTick > codeInterval) {
+          lastCodeTick = ts;
+          activeCodeIdx = (activeCodeIdx + 1) % el.codeLines.length;
+          el.codeLines.forEach((line, idx) => {
+            if (idx === activeCodeIdx) line.classList.add('active');
+            else line.classList.remove('active');
+          });
+
+          // Siklus highlight 4 step di top bar (OBSERVE · MUTATE · COMPRESS · VERIFY)
+          const stepActive = activeCodeIdx % 4;
+          for (let s = 0; s < 4; s++) {
+            const stEl = document.getElementById(`step${s}`);
+            if (s === stepActive) stEl.classList.add('active');
+            else stEl.classList.remove('active');
+          }
+
+          // Siklus highlight 6 kartu Agent di ribbon atas + pulsing bar Handoffs
+          activeAgentStage = (activeAgentStage + 1) % 6;
+          for (let a = 0; a < 6; a++) {
+            const cardEl = document.getElementById(`agCard${a}`);
+            if (cardEl) {
+              if (a === activeAgentStage || a === 2) cardEl.classList.add('highlight');
+              else cardEl.classList.remove('highlight');
+            }
+          }
+
+          // Animasi bar Handoffs (kanan tengah) agar bernapas dinamis seperti video
+          for (let i = 1; i <= 4; i++) {
+            const basePct = state.isMining ? (state.ecoMode ? 42 : 86) : 24;
+            const wave = Math.round(Math.sin(ts * 0.005 + i * 1.3) * 12);
+            const pct = Math.max(8, Math.min(99, basePct + wave));
+            const barEl = document.getElementById(`hoBar${i}`);
+            const valEl = document.getElementById(`hoVal${i}`);
+            if (barEl) barEl.style.width = pct + '%';
+            if (valEl) valEl.textContent = state.isMining ? pct + '%' : 'SYNC';
+          }
+
+          // Pindahkan fokus sel pemindaian di Evidence Matrix 8x8
+          matrixScanIdx = (matrixScanIdx + 1) % 64;
+        }
+
+        // Geser gelombang sparkline secara mulus setiap 90ms (~11 kali per detik, bukan 1 detik sekali)
+        if (ts - lastSparkShiftTick > 90) {
+          lastSparkShiftTick = ts;
+          const phase = ts * 0.004;
+
+          for (let i = 0; i < 6; i++) {
+            const arr = state.agentSparks[i];
+            const val = state.isMining
+              ? 0.3 + 0.35 * Math.sin(phase + i) + Math.random() * 0.3
+              : 0.25 + 0.2 * Math.sin(phase * 0.7 + i * 0.9) + Math.random() * 0.08;
+            arr.push(Math.max(0.05, Math.min(0.95, val)));
+            if (arr.length > 22) arr.shift();
+            renderSparkCanvas(`agSpark${i}`, arr, i === 2 || i === activeAgentStage ? palette.primary : palette.secondary);
+          }
+
+          for (let i = 0; i < 4; i++) {
+            const arr = state.tickerSparks[i];
+            const val = state.isMining
+              ? 0.25 + 0.4 * Math.cos(phase * 1.2 + i) + Math.random() * 0.3
+              : 0.3 + 0.22 * Math.sin(phase * 0.8 + i * 1.4);
+            arr.push(Math.max(0.08, Math.min(0.95, val)));
+            if (arr.length > 16) arr.shift();
+            renderSparkCanvas(`tSpark${i}`, arr, palette.primary);
+          }
+
+          for (let i = 0; i < 5; i++) {
+            const arr = state.midSparks[i];
+            const val = state.isMining
+              ? 0.2 + 0.45 * Math.sin(phase * 1.3 + i * 0.8) + Math.random() * 0.3
+              : 0.22 + 0.18 * Math.cos(phase * 0.6 + i);
+            arr.push(Math.max(0.08, Math.min(0.95, val)));
+            if (arr.length > 20) arr.shift();
+            renderSparkCanvas(`mSpark${i}`, arr, i === 4 ? palette.primary : '#c8b8df');
+          }
+
+          for (let i = 0; i < 4; i++) {
+            const arr = state.botSparks[i];
+            const val = state.isMining
+              ? 0.25 + 0.4 * Math.sin(phase + i * 1.1) + Math.random() * 0.3
+              : 0.2 + 0.18 * Math.sin(phase * 0.65 + i);
+            arr.push(Math.max(0.08, Math.min(0.95, val)));
+            if (arr.length > 24) arr.shift();
+            renderSparkCanvas(`bSpark${i}`, arr, i === 3 ? palette.primary : '#b2a3c9', true);
+          }
+
+          renderHashrateFlowTile(palette, ts);
+        }
+
+        // Sesuaikan resolusi canvas Vortex
+        const rect = el.vortexCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        if (el.vortexCanvas.width !== Math.floor(rect.width * dpr) ||
+            el.vortexCanvas.height !== Math.floor(rect.height * dpr)) {
+          el.vortexCanvas.width = Math.floor(rect.width * dpr);
+          el.vortexCanvas.height = Math.floor(rect.height * dpr);
+        }
+
+        const w = el.vortexCanvas.width;
+        const h = el.vortexCanvas.height;
+        vCtx.clearRect(0, 0, w, h);
+
+        const cx = w * 0.5;
+        const cy = h * 0.45;
+        const R = Math.min(w * 0.235, h * 0.44);
+        const r = R * 0.54;
+
+        // Animasi tetap hidup & berputar mulus sejak halaman dibuka (IDLE), dan makin kencang saat START ditekan
+        const speed = state.isMining ? (state.ecoMode ? 1.15 : 2.65) : 0.82;
+        vortexPhase += 0.015 * speed;
+
+        // Goyangan giroskopik 3D halus seperti donat magnetik di video
+        const tiltX = 1.07 + Math.sin(vortexPhase * 0.55) * 0.065;
+        const wobbleZ = Math.cos(vortexPhase * 0.4) * 0.055;
+        const breathe = 1 + Math.sin(vortexPhase * 1.8) * 0.025;
+
+        // 1. Halo Kabut Luar (Ambient Nebula Glow)
+        const outerGrad = vCtx.createRadialGradient(cx, cy, r * 0.15, cx, cy, R * 1.75);
+        outerGrad.addColorStop(0, palette.coreMid);
+        outerGrad.addColorStop(0.5, state.theme === 'matrix' ? 'rgba(0, 160, 85, 0.12)' : 'rgba(175, 38, 145, 0.18)');
+        outerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        vCtx.fillStyle = outerGrad;
+        vCtx.fillRect(0, 0, w, h);
+
+        // Aktifkan Additive Blending ('lighter') agar ribuan garis yang bertumpuk menyala putih-magenta terang!
+        vCtx.save();
+        vCtx.globalCompositeOperation = 'lighter';
+
+        // 2. Gambar Jaring Kontur Spiral Torus (Magnetic Field Ribbons) yang berputar
+        const ribbonCount = 28;
+        const stepsPerRibbon = 38;
+        for (let m = 0; m < ribbonCount; m++) {
+          const baseU = (m / ribbonCount) * Math.PI * 2 + vortexPhase * 0.45;
+          vCtx.beginPath();
+          for (let s = 0; s <= stepsPerRibbon; s++) {
+            const frac = s / stepsPerRibbon;
+            const vAngle = frac * Math.PI * 2 + vortexPhase * 1.4;
+            const uAngle = baseU + frac * 1.85; // Melilit secara heliks mengelilingi donat
+            const pt = projectTorus(uAngle, vAngle, cx, cy, R * breathe, r * 0.92, tiltX, wobbleZ);
+            if (s === 0) vCtx.moveTo(pt.x, pt.y);
+            else vCtx.lineTo(pt.x, pt.y);
+          }
+          vCtx.strokeStyle = state.theme === 'matrix'
+            ? 'rgba(0, 255, 140, 0.075)'
+            : 'rgba(235, 80, 190, 0.085)';
+          vCtx.lineWidth = 1.1 * dpr;
+          vCtx.stroke();
+        }
+
+        // 3. Gambar 1.400 Filamen Partikel Berkecepatan Tinggi (Melengkung 3 Segmen)
+        const trailFactor = state.isMining ? 4.2 : 3.1;
+        for (let i = 0; i < filaments.length; i++) {
+          const f = filaments[i];
+          f.u += f.speedU * speed;
+          f.v += f.speedV * speed;
+
+          const radR = r * f.radialLayer;
+          const pHead = projectTorus(f.u, f.v, cx, cy, R * breathe, radR, tiltX, wobbleZ);
+          const pMid = projectTorus(
+            f.u - f.speedU * trailFactor * 0.5,
+            f.v - f.speedV * trailFactor * 0.5,
+            cx, cy, R * breathe, radR, tiltX, wobbleZ
+          );
+          const pTail = projectTorus(
+            f.u - f.speedU * trailFactor,
+            f.v - f.speedV * trailFactor,
+            cx, cy, R * breathe, radR, tiltX, wobbleZ
+          );
+
+          // Filamen yang masuk ke leher lubang dalam (cosV < -0.25) menyala jauh lebih terang
+          const innerBoost = pHead.cosV < -0.2 ? (-pHead.cosV * 0.42) : 0;
+          const alpha = Math.max(0.06, Math.min(0.95, 0.26 + pHead.depth * 0.28 + innerBoost));
+
+          if (flashIntensity > 0.15) {
+            vCtx.strokeStyle = `rgba(120, 255, 190, ${Math.min(1, alpha + 0.35)})`;
+          } else if (f.isHot) {
+            vCtx.strokeStyle = state.theme === 'matrix'
+              ? `rgba(210, 255, 225, ${alpha * 0.85})`
+              : `rgba(255, 200, 245, ${alpha * 0.85})`;
+          } else {
+            vCtx.strokeStyle = state.theme === 'matrix'
+              ? `rgba(0, 235, 125, ${alpha * 0.65})`
+              : `rgba(225, 55, 165, ${alpha * 0.65})`;
+          }
+
+          vCtx.lineWidth = f.size * dpr;
+          vCtx.beginPath();
+          vCtx.moveTo(pTail.x, pTail.y);
+          vCtx.quadraticCurveTo(pMid.x, pMid.y, pHead.x, pHead.y);
+          vCtx.stroke();
+        }
+
+        // 4. Efek "X-Pinch Caustic Flares" di Kiri & Kanan Cincin Dalam (Persis Gambar JEV Trading Desk)
+        const pinchDist = R * 0.49;
+        [-1, 1].forEach((dir) => {
+          const px = cx + dir * pinchDist;
+          const py = cy + dir * wobbleZ * 18 * dpr;
+
+          // Bola cahaya inti pinch
+          const pGrad = vCtx.createRadialGradient(px, py, 1 * dpr, px, py, r * 0.95);
+          pGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+          pGrad.addColorStop(0.25, palette.coreInner);
+          pGrad.addColorStop(0.6, palette.coreMid);
+          pGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          vCtx.fillStyle = pGrad;
+          vCtx.beginPath();
+          vCtx.arc(px, py, r * 0.95, 0, Math.PI * 2);
+          vCtx.fill();
+
+          // Sayap cahaya berbentuk huruf X (Caustic Wings) yang menyembur keluar dari cincin dalam
+          vCtx.strokeStyle = state.theme === 'matrix'
+            ? 'rgba(180, 255, 220, 0.45)'
+            : 'rgba(255, 215, 248, 0.48)';
+          vCtx.lineWidth = 2.2 * dpr;
+          for (let wIdx = -2; wIdx <= 2; wIdx++) {
+            const spreadAngle = wIdx * 0.22 + Math.sin(vortexPhase * 2 + wIdx) * 0.04;
+            vCtx.beginPath();
+            vCtx.moveTo(px, py);
+            vCtx.quadraticCurveTo(
+              px + dir * r * 0.45,
+              py + Math.sin(spreadAngle) * r * 0.35,
+              px + dir * r * 0.95,
+              py + Math.sin(spreadAngle) * r * 0.85
+            );
+            vCtx.stroke();
+          }
+        });
+
+        // 5. Cincin Inti "SIGNAL CORE" Berlapis & Berpendar Putih-Pink
+        vCtx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+        vCtx.lineWidth = 2.0 * dpr;
+        vCtx.beginPath();
+        vCtx.ellipse(cx, cy, R * 0.48 * breathe, r * 0.33 * breathe, wobbleZ * 0.4, 0, Math.PI * 2);
+        vCtx.stroke();
+
+        vCtx.strokeStyle = palette.primary;
+        vCtx.lineWidth = 1.2 * dpr;
+        vCtx.beginPath();
+        vCtx.ellipse(cx, cy, R * 0.53 * breathe, r * 0.38 * breathe, -wobbleZ * 0.3, 0, Math.PI * 2);
+        vCtx.stroke();
+
+        // Cincin debu partikel luar (Outer Equator Dust Ring)
+        for (let d = 0; d < 90; d++) {
+          const du = (d / 90) * Math.PI * 2 - vortexPhase * 0.35;
+          const dp = projectTorus(du, 0.15 * Math.sin(du * 5 + vortexPhase), cx, cy, R * 1.04, r * 0.98, tiltX, wobbleZ);
+          if (dp.depth > -0.1) {
+            vCtx.fillStyle = d % 2 === 0 ? '#ffffff' : palette.primary;
+            vCtx.fillRect(dp.x, dp.y, 1.6 * dpr, 1.6 * dpr);
+          }
+        }
+
+        vCtx.restore(); // Kembalikan composite operation ke source-over normal
+
+        // Teks "SIGNAL CORE" di bawah cincin tengah
+        vCtx.font = `700 ${8.5 * dpr}px "JetBrains Mono", monospace`;
+        vCtx.fillStyle = 'rgba(255, 240, 252, 0.78)';
+        vCtx.textAlign = 'center';
+        vCtx.fillText('SIGNAL CORE', cx, cy + r * 0.49);
+        vCtx.textAlign = 'left';
+
+        // Gelombang kejut (Shockwave) saat block simulasi ditemukan
+        for (let s = shockwaves.length - 1; s >= 0; s--) {
+          const sw = shockwaves[s];
+          sw.r += 7 * dpr;
+          sw.alpha -= 0.024;
+          if (sw.alpha <= 0) {
+            shockwaves.splice(s, 1);
+            continue;
+          }
+          vCtx.strokeStyle = `rgba(0, 255, 136, ${sw.alpha})`;
+          vCtx.lineWidth = 2.4 * dpr;
+          vCtx.beginPath();
+          vCtx.ellipse(cx, cy, sw.r * 1.35, sw.r * 0.65, 0, 0, Math.PI * 2);
+          vCtx.stroke();
+        }
+        if (flashIntensity > 0) flashIntensity = Math.max(0, flashIntensity - 0.03);
+
+        // 6. Kotak Callout HUD & Pill Tags dengan Garis Penunjuk yang Mengikuti Permukaan Donat
+        if (w > 780 * dpr) {
+          const bw = 156 * dpr;
+          const bh = 36 * dpr;
+
+          const anchor1 = projectTorus(2.65 + vortexPhase * 0.18, 0.5, cx, cy, R * 0.78, r * 0.5, tiltX, wobbleZ);
+          drawHudCallout(
+            vCtx, dpr,
+            anchor1.x, anchor1.y,
+            cx - R * 1.48, cy - R * 0.42, bw, bh,
+            'CHOICE / NONCE',
+            `0x${(state.lastSampleNonce >>> 0).toString(16).padStart(8, '0')} · ${state.workerCount}W`,
+            palette
+          );
+
+          const anchor2 = projectTorus(0.85 + vortexPhase * 0.18, -0.7, cx, cy, R * 0.85, r * 0.55, tiltX, wobbleZ);
+          drawHudCallout(
+            vCtx, dpr,
+            anchor2.x, anchor2.y,
+            cx + R * 0.42, cy - R * 0.92, bw, bh,
+            'TARGET GATE',
+            `diff ${state.difficultyBits}b · limits ok`,
+            palette
+          );
+
+          const anchor3 = projectTorus(-0.8 + vortexPhase * 0.18, 1.1, cx, cy, R * 0.8, r * 0.5, tiltX, wobbleZ);
+          drawHudCallout(
+            vCtx, dpr,
+            anchor3.x, anchor3.y,
+            cx + R * 0.48, cy + R * 0.54, bw, bh,
+            state.blocksFound > 0 ? 'GATE / BLOCK HIT' : 'GATE / SCANNING',
+            `peak ${state.bestZeroBits}b >= ${state.difficultyBits}b`,
+            palette
+          );
+
+          const pA = projectTorus(2.2, 1.5, cx, cy, R * 0.75, r * 0.5, tiltX, wobbleZ);
+          drawSmallPillTag(vCtx, dpr, pA.x, pA.y, cx - R * 1.05, cy + R * 0.25, `batch ${state.lastSampleZeros}b`, palette);
+
+          const pB = projectTorus(1.5, 1.9, cx, cy, R * 0.85, r * 0.6, tiltX, wobbleZ);
+          drawSmallPillTag(vCtx, dpr, pB.x, pB.y, cx - R * 0.45, cy + R * 0.68, state.isMining ? 'HASHING' : 'STANDBY', palette);
+
+          const pC = projectTorus(-0.3, 1.2, cx, cy, R * 0.9, r * 0.5, tiltX, wobbleZ);
+          drawSmallPillTag(vCtx, dpr, pC.x, pC.y, cx + R * 0.95, cy + R * 0.28, `hits=${state.blocksFound}`, palette);
+        }
+
+        // Update panel kiri & kanan secara real-time 60fps
+        drawEvidenceMatrix(palette, ts);
+        drawNonceDepthCurve(palette, ts);
+        drawZeroVolatilityBars(palette, ts);
+        drawDifficultyGauge(palette, ts);
+
+        requestAnimationFrame(animateFrame);
+      }
+
+      // 8x8 Glowing Pink/Purple/White Evidence Matrix dengan Shimmer & Active Scan Cell
+      function drawEvidenceMatrix(palette, ts = 0) {
+        const rect = el.evidenceMatrixCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        if (el.evidenceMatrixCanvas.width !== Math.floor(rect.width * dpr) ||
+            el.evidenceMatrixCanvas.height !== Math.floor(rect.height * dpr)) {
+          el.evidenceMatrixCanvas.width = Math.floor(rect.width * dpr);
+          el.evidenceMatrixCanvas.height = Math.floor(rect.height * dpr);
+        }
+
+        const w = el.evidenceMatrixCanvas.width;
+        const h = el.evidenceMatrixCanvas.height;
+        mCtx.clearRect(0, 0, w, h);
+
+        const cols = 8;
+        const rows = 8;
+        const cw = w / cols;
+        const ch = h / rows;
+        const hex = state.lastSampleHashHex.padEnd(64, '0');
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * 8 + c;
+            const rawVal = parseInt(hex[idx], 16) || 0;
+            // Beri gelombang shimmer hidup pada sel-sel matriks
+            const waveShift = Math.floor((Math.sin(ts * 0.004 + r * 0.7 + c * 0.5) + 1) * 2.5);
+            const val = (rawVal + waveShift) % 16;
+
+            if (idx === matrixScanIdx) {
+              mCtx.fillStyle = '#ffffff';
+            } else if (rawVal === 0 && idx < Math.ceil(state.lastSampleZeros / 4)) {
+              mCtx.fillStyle = '#ffffff';
+            } else if (val >= 12) {
+              mCtx.fillStyle = palette.primary;
+            } else if (val >= 8) {
+              mCtx.fillStyle = palette.secondary;
+            } else if (val >= 4) {
+              mCtx.fillStyle = state.theme === 'matrix' ? 'rgba(0, 255, 136, 0.28)' : 'rgba(185, 65, 150, 0.38)';
+            } else {
+              mCtx.fillStyle = '#140f1d';
+            }
+
+            const pad = 1.5 * dpr;
+            const x = c * cw + pad;
+            const y = r * ch + pad;
+            const bw = Math.max(2, cw - pad * 2);
+            const bh = Math.max(2, ch - pad * 2);
+
+            mCtx.fillRect(x, y, bw, bh);
+
+            // Bingkai menyala pada sel yang sedang dipindai (seperti di referensi JEV)
+            if (idx === matrixScanIdx) {
+              mCtx.strokeStyle = palette.primary;
+              mCtx.lineWidth = 1.5 * dpr;
+              mCtx.strokeRect(x - 0.5 * dpr, y - 0.5 * dpr, bw + 1 * dpr, bh + 1 * dpr);
+            }
+          }
+        }
+      }
+
+      // Order-Book style V-Curve for 32-Bit Nonce Space dengan ayunan dinamis
+      function drawNonceDepthCurve(palette, ts = 0) {
+        const rect = el.depthCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        if (el.depthCanvas.width !== Math.floor(rect.width * dpr) ||
+            el.depthCanvas.height !== Math.floor(rect.height * dpr)) {
+          el.depthCanvas.width = Math.floor(rect.width * dpr);
+          el.depthCanvas.height = Math.floor(rect.height * dpr);
+        }
+
+        const w = el.depthCanvas.width;
+        const h = el.depthCanvas.height;
+        dCtx.clearRect(0, 0, w, h);
+
+        const swing = Math.sin(ts * 0.0025) * 0.09 + (state.isMining ? Math.cos(ts * 0.011) * 0.06 : 0);
+        const midX = w * (0.5 + swing);
+        const leftTopY = h * (0.16 + Math.sin(ts * 0.003) * 0.05);
+        const rightTopY = h * (0.14 + Math.cos(ts * 0.0035) * 0.05);
+
+        // Left slope (Grey/Purple)
+        dCtx.beginPath();
+        dCtx.moveTo(0, leftTopY);
+        dCtx.lineTo(midX, h * 0.92);
+        dCtx.lineTo(0, h * 0.92);
+        dCtx.closePath();
+        dCtx.fillStyle = 'rgba(157, 143, 179, 0.22)';
+        dCtx.fill();
+        dCtx.strokeStyle = '#9d8fb3';
+        dCtx.lineWidth = 1.4 * dpr;
+        dCtx.beginPath();
+        dCtx.moveTo(0, leftTopY);
+        dCtx.lineTo(midX, h * 0.92);
+        dCtx.stroke();
+
+        // Right slope (Pink/Accent)
+        dCtx.beginPath();
+        dCtx.moveTo(midX, h * 0.92);
+        dCtx.lineTo(w, rightTopY);
+        dCtx.lineTo(w, h * 0.92);
+        dCtx.closePath();
+        dCtx.fillStyle = state.theme === 'matrix' ? 'rgba(0, 255, 136, 0.22)' : 'rgba(255, 79, 163, 0.24)';
+        dCtx.fill();
+        dCtx.strokeStyle = palette.primary;
+        dCtx.lineWidth = 1.4 * dpr;
+        dCtx.beginPath();
+        dCtx.moveTo(midX, h * 0.92);
+        dCtx.lineTo(w, rightTopY);
+        dCtx.stroke();
+      }
+
+      // Vertical Bar Chart for Leading Zero Volatility dengan osilasi spektrum real-time
+      function drawZeroVolatilityBars(palette, ts = 0) {
+        const rect = el.zeroBarsCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        if (el.zeroBarsCanvas.width !== Math.floor(rect.width * dpr) ||
+            el.zeroBarsCanvas.height !== Math.floor(rect.height * dpr)) {
+          el.zeroBarsCanvas.width = Math.floor(rect.width * dpr);
+          el.zeroBarsCanvas.height = Math.floor(rect.height * dpr);
+        }
+
+        const w = el.zeroBarsCanvas.width;
+        const h = el.zeroBarsCanvas.height;
+        zCtx.clearRect(0, 0, w, h);
+
+        const n = state.zeroDistBars.length;
+        const maxVal = Math.max(1, ...state.zeroDistBars.slice(1));
+        const bw = w / n;
+
+        for (let i = 0; i < n; i++) {
+          const v = i === 0 ? state.zeroDistBars[0] * 0.35 : state.zeroDistBars[i];
+          const baseNorm = Math.min(1, Math.max(0.12, Math.log10(v + 1) / Math.log10(maxVal + 10)));
+          const wave = 0.14 * Math.sin(ts * 0.005 + i * 0.65) + (state.isMining ? 0.1 * Math.cos(ts * 0.015 + i) : 0);
+          const norm = Math.max(0.1, Math.min(0.98, baseNorm + wave));
+          const bh = norm * (h - 4 * dpr);
+          zCtx.fillStyle = i % 3 === 0 ? palette.primary : palette.secondary;
+          zCtx.fillRect(
+            i * bw + 1.5 * dpr,
+            h - bh,
+            Math.max(2, bw - 3 * dpr),
+            bh
+          );
+        }
+      }
+
+      // Semi-Circular Risk/Difficulty Gauge dengan getaran mikro pada jarum
+      function drawDifficultyGauge(palette, ts = 0) {
+        const rect = el.riskGaugeCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        if (el.riskGaugeCanvas.width !== Math.floor(rect.width * dpr) ||
+            el.riskGaugeCanvas.height !== Math.floor(rect.height * dpr)) {
+          el.riskGaugeCanvas.width = Math.floor(rect.width * dpr);
+          el.riskGaugeCanvas.height = Math.floor(rect.height * dpr);
+        }
+
+        const w = el.riskGaugeCanvas.width;
+        const h = el.riskGaugeCanvas.height;
+        gCtx.clearRect(0, 0, w, h);
+
+        const cx = w * 0.5;
+        const cy = h * 0.72;
+        const rad = Math.min(w * 0.34, h * 0.58);
+
+        gCtx.strokeStyle = '#261d36';
+        gCtx.lineWidth = 5.5 * dpr;
+        gCtx.beginPath();
+        gCtx.arc(cx, cy, rad, Math.PI, Math.PI * 2);
+        gCtx.stroke();
+
+        const jitter = Math.sin(ts * 0.006) * 0.025 + (state.isMining ? Math.cos(ts * 0.02) * 0.02 : 0);
+        const norm = Math.max(0.02, Math.min(0.98, (state.difficultyBits - 12) / (40 - 12) + jitter));
+        const angle = Math.PI + norm * Math.PI;
+
+        gCtx.strokeStyle = '#e2d9f3';
+        gCtx.lineWidth = 5.5 * dpr;
+        gCtx.beginPath();
+        gCtx.arc(cx, cy, rad, Math.PI, angle);
+        gCtx.stroke();
+
+        // Needle
+        const nx = cx + Math.cos(angle) * (rad - 3 * dpr);
+        const ny = cy + Math.sin(angle) * (rad - 3 * dpr);
+        gCtx.strokeStyle = palette.primary;
+        gCtx.lineWidth = 1.8 * dpr;
+        gCtx.beginPath();
+        gCtx.moveTo(cx, cy);
+        gCtx.lineTo(nx, ny);
+        gCtx.stroke();
+
+        // Label ("EASY / MED / ASIC-ONLY")
+        gCtx.font = `700 ${9 * dpr}px "JetBrains Mono", monospace`;
+        gCtx.fillStyle = '#9d8fb3';
+        gCtx.textAlign = 'center';
+        const lvl = state.difficultyBits <= 18 ? 'EASY' : (state.difficultyBits <= 26 ? 'MED' : 'ASIC-ONLY');
+        gCtx.fillText(lvl, cx, cy + 14 * dpr);
+      }
+
+      // Helper to render any small sparkline canvas
+      function renderSparkCanvas(canvasId, dataArr, color, fillArea = false) {
+        const cvs = document.getElementById(canvasId);
+        if (!cvs) return;
+        const rect = cvs.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        cvs.width = Math.floor(rect.width * dpr);
+        cvs.height = Math.floor(rect.height * dpr);
+
+        const ctx = cvs.getContext('2d');
+        const w = cvs.width;
+        const h = cvs.height;
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.beginPath();
+        for (let i = 0; i < dataArr.length; i++) {
+          const x = (i / (dataArr.length - 1)) * w;
+          const y = h - dataArr[i] * (h - 4 * dpr) - 2 * dpr;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.3 * dpr;
+        ctx.stroke();
+
+        if (fillArea) {
+          ctx.lineTo(w, h);
+          ctx.lineTo(0, h);
+          ctx.closePath();
+          ctx.fillStyle = state.theme === 'matrix' ? 'rgba(0, 255, 136, 0.18)' : 'rgba(255, 79, 163, 0.2)';
+          ctx.fill();
+        }
+      }
+
+      // Draw bar/wave chart in bottom-right SIGNAL FLOW / HASHRATE FLOW tile
+      function renderHashrateFlowTile(palette, ts = 0) {
+        const cvs = document.getElementById('bSpark5');
+        if (!cvs) return;
+        const rect = cvs.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        cvs.width = Math.floor(rect.width * dpr);
+        cvs.height = Math.floor(rect.height * dpr);
+
+        const ctx = cvs.getContext('2d');
+        const w = cvs.width;
+        const h = cvs.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const barCount = 32;
+        const bw = w / barCount;
+
+        for (let i = 0; i < barCount; i++) {
+          const wave = 0.38 + 0.32 * Math.sin(ts * 0.006 + i * 0.45) + 0.2 * Math.cos(ts * 0.011 - i * 0.3);
+          const bh = Math.max(3 * dpr, wave * (h - 4 * dpr));
+          ctx.fillStyle = i % 3 === 0 ? palette.primary : palette.secondary;
+          ctx.fillRect(i * bw + 1 * dpr, h - bh, Math.max(1.5, bw - 2 * dpr), bh);
+        }
+      }
+
+      // =========================================================================
+      // 8. TELEMETRY 1-SECOND TICK & UI EVENTS
+      // =========================================================================
+      function tickTelemetry() {
+        const palette = getThemeColors();
+        const now = new Date();
+        el.clockDate.textContent = now.toUTCString().slice(5, 16).toUpperCase();
+        el.clockTime.textContent = now.toTimeString().slice(0, 8);
+
+        const perfNow = performance.now();
+        const dtSec = Math.max(0.1, (perfNow - state.lastTickTime) / 1000);
+        state.lastTickTime = perfNow;
+
+        if (state.isMining) {
+          state.currentHashrate = state.hashesSinceLastTick / dtSec;
+          state.hashesSinceLastTick = 0;
+          if (state.currentHashrate > state.peakHashrate) {
+            state.peakHashrate = state.currentHashrate;
+          }
+        } else {
+          state.hashesSinceLastTick = 0;
+          state.currentHashrate = 0;
+        }
+
+        state.hashrateHistory.push(state.currentHashrate);
+        if (state.hashrateHistory.length > 48) state.hashrateHistory.shift();
+
+        const elapsedMs = state.accumulatedMs + (state.isMining ? (perfNow - state.lastStartTimestamp) : 0);
+        const totalSec = Math.floor(elapsedMs / 1000);
+        const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+        const ss = String(totalSec % 60).padStart(2, '0');
+
+        // Update KPI numbers
+        document.getElementById('agVal3').textContent = formatHashrate(state.currentHashrate);
+        el.midHashrate.textContent = formatCompact(state.currentHashrate);
+        el.midZeroRatio.textContent = (state.bestZeroBits / Math.max(1, state.difficultyBits)).toFixed(2);
+        el.midElapsed.textContent = `${mm}:${ss}`;
+
+        el.botTotalHashes.textContent = state.totalHashes.toLocaleString('id-ID');
+        el.botLatency.textContent = `${state.isMining ? Math.max(1, state.lastBatchMs) : 0} ms`;
+
+        // Push & render all mini sparklines
+        for (let i = 0; i < 6; i++) {
+          const arr = state.agentSparks[i];
+          arr.push(state.isMining ? 0.25 + Math.random() * 0.65 : 0.15 + Math.random() * 0.08);
+          if (arr.length > 22) arr.shift();
+          renderSparkCanvas(`agSpark${i}`, arr, i === 2 ? palette.primary : palette.secondary);
+        }
+
+        for (let i = 0; i < 4; i++) {
+          const arr = state.tickerSparks[i];
+          arr.push(state.isMining ? 0.2 + Math.random() * 0.7 : 0.3);
+          if (arr.length > 16) arr.shift();
+          renderSparkCanvas(`tSpark${i}`, arr, palette.primary);
+        }
+
+        for (let i = 0; i < 5; i++) {
+          const arr = state.midSparks[i];
+          arr.push(state.isMining ? 0.2 + Math.random() * 0.75 : 0.15);
+          if (arr.length > 20) arr.shift();
+          renderSparkCanvas(`mSpark${i}`, arr, i === 4 ? palette.primary : '#b9accf');
+        }
+
+        for (let i = 0; i < 4; i++) {
+          const arr = state.botSparks[i];
+          arr.push(state.isMining ? 0.2 + Math.random() * 0.72 : 0.12);
+          if (arr.length > 24) arr.shift();
+          renderSparkCanvas(`bSpark${i}`, arr, i === 3 ? palette.primary : '#9d8fb3', true);
+        }
+
+        renderHashrateFlowTile(palette);
+      }
+
+      function initEvents() {
+        el.sliderWorkers.max = String(hwCores);
+        el.sliderWorkers.value = String(state.workerCount);
+        el.lblWorkers.textContent = `${state.workerCount} cores`;
+        el.codeWorkerNum.textContent = String(state.workerCount);
+
+        el.btnStart.addEventListener('click', startMining);
+        el.btnStop.addEventListener('click', stopMining);
+
+        el.sliderDiff.addEventListener('input', function () {
+          state.difficultyBits = parseInt(this.value, 10);
+          updateHeaderUI();
+          if (state.isMining) broadcastConfigToWorkers();
+        });
+
+        el.sliderWorkers.addEventListener('input', function () {
+          state.workerCount = parseInt(this.value, 10);
+          el.lblWorkers.textContent = `${state.workerCount} cores`;
+          el.codeWorkerNum.textContent = String(state.workerCount);
+          if (state.isMining) {
+            spawnWorkers(state.workerCount);
+            syncControlUI();
+            appendLogRow('rig', `workers scaled to ${state.workerCount} threads`, `${state.workerCount}W`, false);
+          } else {
+            syncControlUI();
+          }
+        });
+
+        el.btnEco.addEventListener('click', function () {
+          state.ecoMode = !state.ecoMode;
+          syncControlUI();
+          if (state.isMining) {
+            broadcastConfigToWorkers();
+            appendLogRow('thermal', `eco_mode=${state.ecoMode} (CPU pacing updated)`, state.ecoMode ? 'ECO' : 'MAX', false);
+          }
+        });
+
+        el.btnNewHeader.addEventListener('click', function () {
+          generateCandidateHeader(true);
+        });
+
+        el.btnClearLog.addEventListener('click', function () {
+          el.terminalLog.innerHTML = '';
+          appendLogRow('system', 'live log buffer cleared', 'OK', false);
+        });
+
+        el.btnTheme.addEventListener('click', function () {
+          state.theme = state.theme === 'jev' ? 'matrix' : 'jev';
+          document.body.setAttribute('data-theme', state.theme);
+          this.textContent = state.theme === 'jev' ? 'PALETTE: PINK/PURPLE' : 'PALETTE: GREEN/AMBER';
+          tickTelemetry();
+        });
+      }
+
+      // =========================================================================
+      // 9. INISIALISASI AWAL (IDLE — TANPA AUTO-MINING)
+      // =========================================================================
+      initEvents();
+      generateCandidateHeader(false);
+      syncControlUI();
+      appendLogRow('system', 'STANDBY (IDLE) · Tekan START di panel kiri untuk memulai hashing SHA-256×2', 'READY', false);
+      tickTelemetry();
+      setInterval(tickTelemetry, 1000);
+      requestAnimationFrame(animateFrame);
+    })();
+  </script>
+</body>
+</html>

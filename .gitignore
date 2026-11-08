@@ -1,0 +1,6 @@
+# Abaikan file video referensi lokal, data sementara, dan kredensial
+*.mp4
+.tmp/
+.env
+credentials.json
+token.json
